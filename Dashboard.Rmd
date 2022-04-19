@@ -33,20 +33,22 @@ runtime: shiny
   }
 </style>
 
-```{r dependencies, include=FALSE}
+```{r server_environement, include=FALSE}
 ## Create Folders and source them
 ## sudo apt-get install tk-dev
 ## sudo apt-get install fftw-dev
 ## sudo apt-get install libcgal-dev libglu1-mesa-dev libglu1-mesa-dev
 
-reticulate::use_python(reticulate::py_config()[[1]],required = T)
-library(reticulate)
 # mainDir<-getwd()
 # create_folder<-function(x)ifelse(!dir.exists(file.path(getwd(), x)), dir.create(file.path(getwd(), x)), FALSE)
 # create_folder('Data')
 # create_folder('Report')
 # create_folder('Plots')
 # create_folder('EDF')
+```
+
+```{r r_and_shiny_environement, include=FALSE}
+################################ load and install of r packages ###############################
 loadpackage<-function(x){
   for(i in x){
     if(!(i %in% rownames(installed.packages()))){
@@ -55,16 +57,19 @@ loadpackage<-function(x){
     else{eval(parse(text=paste0("library(\"",i,"\")")))}
   }
 }
-## Load install R packages
-loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","kableExtra","xts","eegUtils","dlm","forecast","signal","rmarkdown","plotly","visNetwork","Rssa","RHRV","data.table","DT","shinyTime","shinyWidgets","dygraphs","ggplotify","cowplot","tidyr"))
-demoMode=F
-# set default code-chunk parameters
+################################ POSSIBLE UNNESSECARY PACKAGES / CHECK SORT FOR READABILITY ##############################
+loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","kableExtra","xts","eegUtils","dlm","forecast","signal",
+              "rmarkdown","plotly","visNetwork","Rssa","RHRV","data.table","DT","shinyTime","shinyWidgets","dygraphs","ggplotify","cowplot","tidyr"))
+
+demoMode=F ######################## SHOULD BE DELETED
+
+################################ set default code-chunk parameters
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, error = FALSE,
                       fig.align = 'center', fig.pos = 'htbp', results = 'asis')
 options(scipen = 999)# no exponentials-plain values
 options(shiny.maxRequestSize=5000*1024^2)#Max Upload Size
 options(shiny.Trace=T)
-## Default output format (shiny-html first, statitic-Pdf later)
+################################ Default output format (shiny-html first, statitic-Pdf later)
 if(!is.null(knitr::opts_knit$get("rmarkdown.pandoc.to"))){
   outputoption<<-knitr::opts_knit$get("rmarkdown.pandoc.to")
 }else{outputoption<<-"html"}
@@ -72,6 +77,8 @@ shiny_running = function()identical(rmarkdown::metadata$runtime, 'shiny')&output
 if(!shiny_running()){
   reactiveValues<-function(...)list(...)
 }
+
+################################# FIND AND SET BASE DIRECTORY
 if(outputoption!="html"){
   if(outputoption!="latex"){
   mainDir<-getwd()
@@ -79,7 +86,6 @@ if(outputoption!="html"){
     mainDir<-getwd()
     # mainDirsplit<-strsplit(mainDir,"/")[[1]]
     # mainDir<-paste(mainDirsplit[-length(mainDirsplit)],collapse="/")
-
   }
 }else{
   if(outputoption=="html")
@@ -87,14 +93,17 @@ if(outputoption!="html"){
     #demoMode=T
     # mainDir<-"/home/sweiss/Mentalab/"
 }
-
+################################# IF STATIC USE UNSTATIC FUNCTION AS LIST -> FOR DEBUG PURPOSES 
 if(!shiny_running()){
   reactiveValues<-function(...)list(...)
 }
 ```
 
-```{r}
-## Setup Python in Reticulate
+```{r python_environment}
+####################### Setup Python Environement in Reticulate #######################
+####################### CURRENTLY NOT MAINTAINED -> USED IS WHAT IS PROVIDED DEFAULT BY RETICULATE ###############
+reticulate::use_python(reticulate::py_config()[[1]],required = T)
+library(reticulate)
 #reticulate::repl_python()
 # conda_create("final")
 #use_condaenv("final")
@@ -106,120 +115,14 @@ if(!shiny_running()){
 #conda_install("MENTALAB", "explorepy")
 ```
 
-```{r,define_functions}
-reticulate::source_python(paste0(mainDir,"/EEG.py"))
-source(paste0(mainDir,"/helpers.R"))
+```{r define_functions}
+####################### FILES NEED TO BE UPDATED
+reticulate::source_python(paste0(mainDir,"/EEG.py")) ###### LSL STREAM MISSING
+source(paste0(mainDir,"/helpers.R")) 
 source(paste0(mainDir,"/ui.R"))
 source(paste0(mainDir,"/fixed_frequency.R"))
 
-findexg<-function(nodes,edges,pos){
-  res=as.character(nodes[nodes$id %in% subset(edges,to==pos)$from& nodes$group %in% "physical","label"])
-    res<-unique(c(res,as.character(nodes[nodes$id %in% subset(edges,from==pos)$to& nodes$group %in% "physical","label"])))
-    return(res)
-}
-
-findneighbors<-function(nodes,edges,nom,dir="both",g=NULL){
-  if(dir=="both"){
-    ids=nodes[nodes$label %in% nom,"id"]
-    es=edges[edges$from %in% ids | edges$to %in% ids,]
-    if(!is.null(g)){
-      gnods=nodes[nodes$group %in% g,"id"]
-      gedges=edges$id[(edges$from %in% gnods)|(edges$to %in% gnods)]
-      redges=es[es$id %in% gedges,]
-      res=unique(nodes[nodes$id %in% redges$from | nodes$id %in% redges$to,"label"])
-      res=res[!(res %in% nom)]
-    }else{
-      res=unique(nodes[nodes$id %in% es$from | nodes$id %in% es$to,"label"])
-      res=res[!(res %in% nom)]
-    }
-    # res=as.character(nodes[nodes$id %in% subset(edges,to==pos)$from & nodes$group %in% "physical","label"])
-  }
-  if(dir=="to"){
-    ids=nodes[nodes$label %in% nom,"id"]
-    es=edges[ edges$to %in% ids,]
-    if(!is.null(g)){
-      gnods=nodes[nodes$group %in% g,"id"]
-      gedges=edges$id[(edges$from %in% gnods)]
-      redges=es[es$id %in% gedges,]
-      res=unique(nodes[ nodes$id %in% redges$from,"label"])
-      res=res[!(res %in% nom)]
-    }else{
-      res=unique(nodes[nodes$id %in% es$from,"label"])
-      res=res[!(res %in% nom)]
-    }
-  }
-  if(dir=="from"){
-    ids=nodes[nodes$label %in% nom,"id"]
-    es=edges[edges$from %in% ids ,]
-    if(!is.null(g)){
-      gnods=nodes[nodes$group %in% g,"id"]
-      gedges=edges$id[(edges$to %in% gnods)]
-      redges=es[es$id %in% gedges,]
-      res=unique(nodes[nodes$id %in% redges$to ,"label"])
-      res=res[!(res %in% nom)]
-    }else{
-      res=unique(nodes[nodes$id %in% es$to ,"label"])
-      res=res[!(res %in% nom)]
-    }
-  }
-  if(length(res)==0){res=""}
-  # res=as.character(nodes[nodes$id %in% subset(edges,to==pos)$from& nodes$group %in% "physical","label"])
-  # res<-unique(c(res,as.character(nodes[nodes$id %in% subset(edges,from==pos)$to &
-  #                                        nodes$group %in% "physical","label"])))
-    return(res)
-}
-
-filter_value=function(nodes,edges,s){
-  fn=nodes[nodes$label==s,"id"]
-  fe=edges[edges$from==fn,"title"]
-  res=strsplit(fe,":")
-  res2=unlist(lapply(res,function(x)x[2]))
-  res=unlist(lapply(res,function(x)x[1]))
-  ## Making use of to is channel and from is filter
-  if("High Pass" %in% res){
-    n_f=length(edges[edges$to==fn,"title"])
-    hf=rep(paste0("H:",res2[res %in% "High Pass"]),n_f)
-  }else{
-    n_f=length(edges[edges$to==fn,"title"])
-    hf=rep(paste0("H:",0),n_f)
-  }
-  if("Low Pass" %in% res){
-    n_f=length(edges[edges$to==fn,"title"])
-    hf2=rep(paste0("L:",res2[res %in% "Low Pass"]),n_f)
-  }else{
-    n_f=length(edges[edges$to==fn,"title"])
-    hf2=rep(paste0("L:",0),n_f)
-  }
-  if("Notch" %in% res){
-    n_f=length(edges[edges$to==fn,"title"])
-    hf3=rep(paste0("N:",res2[res %in% "Notch"]),n_f)
-  }else{
-    n_f=length(edges[edges$to==fn,"title"])
-    hf3=rep(paste0("N:",0),n_f)
-  }
-
-
-  return(paste0(hf3,hf2,hf))
-}
-
-
-findrecons<-function(nodes,edges,pos){
-  res=as.character(nodes[nodes$id %in% subset(edges,to==pos)$from& nodes$group %in% "Reconstruction","label"])
-    res<-unique(c(res,as.character(nodes[nodes$id %in% subset(edges,from==pos)$to& nodes$group %in% "Reconstruction","label"])))
-    return(res)
-}
-
-findcluster<-function(nodes,edges,pos){
-  res=as.character(nodes[nodes$id %in% subset(edges,to==pos)$from& nodes$group %in% "Cluster","label"])
-    res<-unique(c(res,as.character(nodes[nodes$id %in% subset(edges,from==pos)$to& nodes$group %in% "Cluster","label"])))
-    return(res)
-}
-
-findcomponent<-function(nodes,edges,pos){
-  res=as.character(nodes[nodes$id %in% subset(edges,to==pos)$from& nodes$group %in% "Components","label"])
-    res<-unique(c(res,as.character(nodes[nodes$id %in% subset(edges,from==pos)$to& nodes$group %in% "Components","label"])))
-    return(res)
-}
+####################### MANY UI FUNCTIONS REMOVED FROM HERE -> POSSIBLE BUG #######################
 
 ```
 
@@ -230,7 +133,8 @@ findcomponent<-function(nodes,edges,pos){
 
 <!-- ### Signal Source -->
 
-```{r,init_fixed}
+```{r default_EEG_and_Graph_Object}
+#################### SHOULD BE UPDATED IN A BASE STARTER SCRIPT ####################
 # if(shiny_running()){
 init.Date=Sys.time()
 init.time=strftime(init.Date, format = "%H:%M")
@@ -311,7 +215,7 @@ init.resol=c(first(index(init.freq_filter)),last(index(init.freq_filter)))
 ## Singular Spectrum Analysis initial call
 # tmp=round(downsample(window(init.freq_filter,start=first(index(init.freq_filter)),end=(first(index(init.freq_filter))+60*5)),10),6)
 tmp=downsample(window(init.freq_filter,start=as.POSIXct("2020-03-03 00:40"),end=as.POSIXct("2020-03-03 00:58")),25)
- init.ssa=ssa.svd(window(tmp[,paste0("Filtered","ch5")],start=first(index(tmp)),end=first(index(tmp))+60*60),30*10,1,50)
+init.ssa=ssa.svd(window(tmp[,paste0("Filtered","ch5")],start=first(index(tmp)),end=first(index(tmp))+60*60),30*10,1,50)
 
 ## Update graph display, currently commented
 #init.nodes=update_nodes_components(init.nodes,init.ssa)
@@ -335,20 +239,7 @@ init.emg.fits=c()
 init.eog.fits=c()
 
 }
-```
 
-<!-- \begin{tcolorbox}[colback=lhi!30,%gray background -->
-<!--                 colframe=lhi!60,% black frame colour -->
-<!--                 arc=1mm, auto outer arc,] -->
-<!-- MentaLab's Signal Evaluation employes recent signal processing tools, to evaluate ECG and EEG data.     -->
-<!-- Furthermore it holds relevant citation and customizable output formats.     -->
-<!-- It is extandable by Python and R data analysis methods and curated by professional biostatisticians and medical experts.     -->
-<!-- \end{tcolorbox} -->
-
-### Input - data is assumed to be in Voltage and will be converted based on biosource, initial rounding to one microvolt.
-<!-- {.sidebar} -->
-
-```{r}
 
 if(shiny_running()){
 
@@ -427,6 +318,21 @@ ExG<-reactiveValues(
 
 }
 }
+
+```
+
+<!-- \begin{tcolorbox}[colback=lhi!30,%gray background -->
+<!--                 colframe=lhi!60,% black frame colour -->
+<!--                 arc=1mm, auto outer arc,] -->
+<!-- MentaLab's Signal Evaluation employes recent signal processing tools, to evaluate ECG and EEG data.     -->
+<!-- Furthermore it holds relevant citation and customizable output formats.     -->
+<!-- It is extandable by Python and R data analysis methods and curated by professional biostatisticians and medical experts.     -->
+<!-- \end{tcolorbox} -->
+
+### Input - data is assumed to be in Voltage and will be converted based on biosource, initial rounding to one microvolt.
+<!-- {.sidebar} -->
+
+```{r}
 
 
 if(shiny_running()){
@@ -964,7 +870,6 @@ observeEvent(input$filter_button,
 
       colnames(tmp)<-paste0("Filtered",colnames(tmp))
       ExG$freq[,(colnames(ExG$freq) %in% paste0("Filtered",graph_data[[filt_ch]]))]=tmp
-
 
       # tmp2=ExG$freq[,!(colnames(ExG$freq) %in% paste0("Filtered",graph_data[filt_ch]))]
       # ExG$freq<-as.xts(tmp[,(colnames(tmp) %in% paste0("Filtered",graph_data[filt_ch]))],
