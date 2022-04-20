@@ -61,7 +61,7 @@ loadpackage<-function(x){
 loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","kableExtra","xts","eegUtils","dlm","forecast","signal",
               "rmarkdown","plotly","visNetwork","Rssa","RHRV","data.table","DT","shinyTime","shinyWidgets","dygraphs","ggplotify","cowplot","tidyr"))
 
-demoMode=F ######################## SHOULD BE DELETED
+demoMode<<-F ######################## SHOULD BE DELETED 
 
 ################################ set default code-chunk parameters
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, error = FALSE,
@@ -73,7 +73,7 @@ options(shiny.Trace=T)
 if(!is.null(knitr::opts_knit$get("rmarkdown.pandoc.to"))){
   outputoption<<-knitr::opts_knit$get("rmarkdown.pandoc.to")
 }else{outputoption<<-"html"}
-shiny_running = function()identical(rmarkdown::metadata$runtime, 'shiny')&outputoption!="latex"
+shiny_running <<- function()identical(rmarkdown::metadata$runtime, 'shiny')&outputoption!="latex"
 if(!shiny_running()){
   reactiveValues<-function(...)list(...)
 }
@@ -81,21 +81,21 @@ if(!shiny_running()){
 ################################# FIND AND SET BASE DIRECTORY
 if(outputoption!="html"){
   if(outputoption!="latex"){
-  mainDir<-getwd()
+  mainDir<<-getwd()
   }else{
-    mainDir<-getwd()
+    mainDir<<-getwd()
     # mainDirsplit<-strsplit(mainDir,"/")[[1]]
     # mainDir<-paste(mainDirsplit[-length(mainDirsplit)],collapse="/")
   }
 }else{
   if(outputoption=="html")
-    mainDir<-"/srv/shiny-server/Test/"
+    mainDir<<-"/srv/shiny-server/Test/"
     #demoMode=T
     # mainDir<-"/home/sweiss/Mentalab/"
 }
 ################################# IF STATIC USE UNSTATIC FUNCTION AS LIST -> FOR DEBUG PURPOSES 
 if(!shiny_running()){
-  reactiveValues<-function(...)list(...)
+  reactiveValues<<-function(...)list(...)
 }
 ```
 
@@ -122,11 +122,11 @@ source(paste0(mainDir,"/helpers.R"))
 source(paste0(mainDir,"/ui.R"))
 source(paste0(mainDir,"/fixed_frequency.R"))
 
-####################### MANY UI FUNCTIONS REMOVED FROM HERE -> POSSIBLE BUG #######################
+####################### MANY UI FUNCTIONS REMOVED FROM HERE -> POSSIBLE BUG? #######################
 
 ```
 
-
+    
 <!-- \lhead{MentaLab's Signal Evaluation \linebreak {\leftmark}  } -->
 
 \clearpage
@@ -134,191 +134,7 @@ source(paste0(mainDir,"/fixed_frequency.R"))
 <!-- ### Signal Source -->
 
 ```{r default_EEG_and_Graph_Object}
-#################### SHOULD BE UPDATED IN A BASE STARTER SCRIPT ####################
-# if(shiny_running()){
-init.Date=Sys.time()
-init.time=strftime(init.Date, format = "%H:%M")
-base.nodes<<-data.frame(
-  id = c(1:7),
-  label=c("EEG","ECG","EOG","EMG","Notch","High Pass","Low Pass"),
-  group=c(rep("biological",4),rep("digital",3)),stringsAsFactors = F)
-
-# init.ExG=import_raw("/srv/shiny-server/UItest/EDF/Stefan W, 32 yo, Apnoe, no Medication_.edf")
-# init.srate=init.ExG[["srate"]]
-# init.ExG=round(data.frame(init.ExG[["signals"]]),0)
-if(demoMode==F){
-## A small converted data set
-init.ExG<<-round(data.frame(fread(paste0(mainDir,"/Data/DATA021_eeg_sub.csv"), header=T)[,-1])*1000*1000,0)
-init.srate<<-250
-init.channels<<-colnames(init.ExG)
-
-base.nodes<<-data.frame(
-  id = c(1:7),
-  label=c("EEG","ECG","EOG","EMG","Notch","High Pass","Low Pass"),
-  group=c(rep("biological",4),rep("digital",3)),stringsAsFactors = F)
-
-init.nodes<<-update_nodes(base.nodes,init.ExG)
-biosigs<-subset(init.nodes,group=="biological")
-physigs<-subset(init.nodes,group=="physical")
-digsigs<-subset(init.nodes,group=="digital")
-
-init.edges=data.frame(from = physigs$id[5:8], to = biosigs$id[1])
-init.edges<-rbind(init.edges,data.frame(from = physigs$id[1], to = biosigs$id[2]))
-init.edges<-rbind(init.edges,data.frame(from = physigs$id[2:3], to = biosigs$id[3]))
-init.edges<-rbind(init.edges,data.frame(from = physigs$id[4], to = biosigs$id[4]))
-init.edges<-rbind(init.edges,data.frame(from = biosigs$id[1], to = digsigs$id[2:3]))
-init.edges$id<-1:nrow(init.edges)
-init.edges$title=""
-init.edges$value=1
-
-
-init.eeg.fits=findexg(init.nodes,init.edges,1)
-init.ecg.fits=findexg(init.nodes,init.edges,2)
-init.eog.fits=findexg(init.nodes,init.edges,3)
-init.emg.fits=findexg(init.nodes,init.edges,4)
-
-init.freq_filter.temp=freq_filter(init.ExG,init.srate,50,c(2,30),init.eeg.fits)
-colnames(init.freq_filter.temp)<-paste0("Filtered",colnames(init.freq_filter.temp))
-init.freq_filter<-as.xts(init.freq_filter.temp,
-                         seq(as.POSIXct("2020-03-03 00:40:00"),
-                             by=1/init.srate,
-                             length=nrow(init.freq_filter.temp)))
-
-init.bandpower<-rel_bp(init.freq_filter.temp[,5])
-init.freq.bandpower<-as.xts((init.bandpower[,1:5]/init.bandpower[,6])*100,seq(as.POSIXct("2020-03-03 00:40:00"), by=30, length=nrow(init.bandpower)))
-
-init.stages=data.frame(
-  "Sleep State (W, S1, S2, S3, REM)"=c("W"),
-  "Time (xx:xx or xx:xx:xx)"=as.POSIXct(paste(as.Date(as.POSIXct("2020-03-03 00:40:00"))+1,"00:50:00")),
-                       stringsAsFactors = F)
-
-# init.stages=data.frame(
-#   "Sleep State (W, S1, S2, S3, REM)"=c("W"),
-#   "Time (xx:xx or xx:xx:xx)"=as.POSIXct("2020-03-03 23:55:00"),
-#                        stringsAsFactors = F)
-
-# init.stages=data.frame("Sleep State (W, S1, S2, S3, REM)"=c("W","S1","S2"),"Time (xx:xx or xx:xx:xx)"=c("00:08","00:30","01:02"),stringsAsFactors = F)
-
-# init.stages=data.frame("Stage / Event" = rep("Stage",3),
-#                        "Sleep State (W, S1, S2, S3, REM)"=c("W","S1","S2"),
-#                        "Time (xx:xx or xx:xx:xx)"=c("00:08","00:30","01:02"),
-#                        stringsAsFactors = F)
-
-## For Visual Display only, optimization routine for quick display
-init.orig.chan=init.freq_filter[,paste0("Filtered",init.eeg.fits)]
-init.orig.ssa=init.orig.chan
-init.orig.disp=init.orig.chan
-init.disp=downsample(init.freq_filter[,paste0("Filtered",init.eeg.fits)],250*60)
-init.resol=c(first(index(init.freq_filter)),last(index(init.freq_filter)))
-
-
-## Singular Spectrum Analysis initial call
-# tmp=round(downsample(window(init.freq_filter,start=first(index(init.freq_filter)),end=(first(index(init.freq_filter))+60*5)),10),6)
-tmp=downsample(window(init.freq_filter,start=as.POSIXct("2020-03-03 00:40"),end=as.POSIXct("2020-03-03 00:58")),25)
-init.ssa=ssa.svd(window(tmp[,paste0("Filtered","ch5")],start=first(index(tmp)),end=first(index(tmp))+60*60),30*10,1,50)
-
-## Update graph display, currently commented
-#init.nodes=update_nodes_components(init.nodes,init.ssa)
-init.ssa_g=grouping.ssa(init.ssa,g=1:(ncol(init.ssa$U)),nc=3)
-
-## Update graph display, currently commented
-#init.nodes=update_nodes_cluster(init.nodes,init.ssa_g)
-#init.edges=update_edges_cluster(init.nodes,init.edges,init.ssa_g)
-
-## Reconstruction, only for display, currently soft implemented only
-init.recons=recons(init.ssa,init.ssa_g,stacked=F)
-#}
-
-# init.nodes=update_nodes_recons(init.nodes)
-}else{
-init.nodes=base.nodes
-init.edges=data.frame("from","to")
-init.eeg.fits=c()
-init.ecg.fits=c()
-init.emg.fits=c()
-init.eog.fits=c()
-
-}
-
-
-if(shiny_running()){
-
-## Reactive Environement for graph network
-graph_data <- reactiveValues(
-  nodes = init.nodes,
-  edges=init.edges,
-  EEG=init.eeg.fits,
-  ECG=init.ecg.fits,
-  EOG=init.eog.fits,
-  EMG=init.emg.fits
-)
-
-## Main Reactive Object
-if(demoMode==F){
-ExG<-reactiveValues(
-  ts=as.xts(init.ExG,seq(as.POSIXct("2020-03-03 00:40:00"), by=1/init.srate, length=nrow(init.ExG))),
-  srate=init.srate,
-  channels=init.channels,
-  freq=init.freq_filter,
-  bandpower=init.freq.bandpower,
-  stages=init.stages,
-  orig.chan=init.orig.chan,
-  orig.ssa=init.orig.ssa,
-  orit.events=init.orig.ssa,
-  orig.disp=init.orig.disp,
-  disp=init.disp,
-  resol=init.resol,
-  posix=as.POSIXct("2020-03-03 00:40:00"),
-  sight="time",
-  newfile=F,
-  ssa=init.ssa,
-  gssa=init.ssa_g,
-  rssa=init.recons,
-  events=data.frame(),
-  df_res=data.frame(),
-  df_res2=data.frame(),
-  pan=0,
-  hold=1,
-  a=0
-)
-}else{
-init.ExG=as.data.frame(rep(0,250*60*60*8))
-colnames(init.ExG)="Empty"
-init.stages=
-init.freq_filter=as.xts(init.ExG,seq(init.Date, by=1/250, length=nrow(init.ExG)))
-init.orig.chan=downsample(as.xts(init.ExG,seq(init.Date, by=1/250, length=nrow(init.ExG))),250*60)
-init.stages=data.frame(
-  "Sleep State (W, S1, S2, S3, REM)"=c("W"),
-  "Time (xx:xx or xx:xx:xx)"=init.Date,
-                       stringsAsFactors = F)
-
-ExG<-reactiveValues(
-  ts=as.xts(init.ExG,seq(init.Date, by=1/250, length=nrow(init.ExG))),
-  srate=250,
-  channels=c("Empty"),
-  freq=init.freq_filter,
-  bandpower=data.frame(),
-  stages=init.stages,
-  orig.chan=init.orig.chan,
-  orig.ssa=init.orig.chan,
-  orit.events=init.orig.chan,
-  orig.disp=init.orig.chan,
-  disp=init.orig.chan,
-  resol=c(first(init.freq_filter),last(init.freq_filter)),
-  posix=init.Date,
-  sight="bird",
-  newfile=F,
-  events=data.frame(),
-  df_res=data.frame(),
-  df_res2=data.frame(),
-  pan=0,
-  hold=1,
-  a=0
-)
-
-}
-}
-
+source(paste0(mainDir,"/constructor.R"))
 ```
 
 <!-- \begin{tcolorbox}[colback=lhi!30,%gray background -->
@@ -487,40 +303,24 @@ geom_step(data=d, mapping=aes(x=x, y=y),group=1)+theme_classic()
 ## Include Export and Import Options, funcitons is faulty
 ## DATA upload actions, currently only EDF and csv
 if(shiny_running()){
-observeEvent(input$static_data,{
-      if(any(grepl(".edf",input$static_data))){
-        tmp=import_raw(input$static_data$datapath)
-        # tmp=import_raw(paste0(mainDir,"/Data/slp03.edf"))
-        ExG$srate=tmp[["srate"]]
-        tmp=tmp[["signals"]]
-        ExG$posix=as.POSIXct(paste(input$rec_date,input$rec_time))
-        ExG$ts=as.xts(data.frame(tmp),
-                      seq(ExG$posix,
-                          by=1/ExG$srate, length=nrow(data.frame(tmp))))
-
-      }
-      if(any(grepl(".csv",input$static_data))){
-        tmp=fread(input$static_data$datapath)
-        ExG$srate=as.numeric(input$srate)
-        ExG$posix=as.POSIXct(paste(input$rec_date,input$rec_time))
-        ExG$ts=as.xts(data.frame(tmp),
-                      seq(ExG$posix,
-                          by=1/ExG$srate, length=nrow(data.frame(tmp))))
-
-      }
-      if(any(grepl(".BIN",input$static_data))){
-        #ExG$a=1
-        #file.copy(input$static_data$datapath,paste0(mainDir,"Data/"))
-        py$import_explorepy(input$static_data$datapath)
-        # file.copy(input$static_data$datapath,paste0(mainDir,"Data/"))
-        tmp=fread(paste0(mainDir,"/0_exg.csv"))
-        ExG$srate=as.numeric(input$srate)
-        ExG$posix=as.POSIXct(paste(input$rec_date,input$rec_time))
-        ExG$ts=as.xts(data.frame(tmp),
-                       seq(ExG$posix,
-                           by=1/ExG$srate, length=nrow(data.frame(tmp))))
-
-      }
+  observeEvent(input$static_data,{
+    print("LOADING DATA")
+    if(any(grepl(".csv",input$static_data))){
+      tmp=fread(input$static_data$datapath)
+    }
+    if(any(grepl(".BIN",input$static_data))){
+      py$import_explorepy(nput$static_data$datapath)
+    }
+    ExG$srate=as.numeric(input$srate)
+    ExG$posix=as.POSIXct(paste(input$rec_date,input$rec_time))
+    if(any(grepl(".edf",input$static_data))){
+      tmp=import_raw(input$static_data$datapath)
+      ExG$srate=tmp[["srate"]]
+      tmp=tmp[["signals"]]
+    }
+    ExG$ts=as.xts(data.frame(tmp),
+                seq(ExG$posix,
+                    by=1/ExG$srate, length=nrow(data.frame(tmp))))
       # get column names
       graph_data$nodes=update_nodes(base.nodes,tmp)
       biosigs=subset(graph_data$nodes,group=="biological")
@@ -550,9 +350,10 @@ observeEvent(input$static_data,{
                         "Time (xx:xx or xx:xx:xx)"=first(seq(ExG$posix,by=1/ExG$srate,length=nrow(ExG$ts))),
                         stringsAsFactors = F)
     graph_data$EEG=findexg(graph_data$nodes,graph_data$edges,1)
-      graph_data$ECG=findexg(graph_data$nodes,graph_data$edges,2)
-      graph_data$EOG=findexg(graph_data$nodes,graph_data$edges,3)
-      graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
+    graph_data$ECG=findexg(graph_data$nodes,graph_data$edges,2)
+    graph_data$EOG=findexg(graph_data$nodes,graph_data$edges,3)
+    graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
+    print("READIN WORKED")
   })
 
 observeEvent(input$srate,{
@@ -563,16 +364,16 @@ observeEvent(input$srate,{
 if(shiny_running()){
 observeEvent(input$upload,{
   showModal(modalDialog(
-  fillRow(dateInput("rec_date", label="Start Date", value = NULL, min = NULL, max = NULL,
+    dateInput("rec_date", label="Start Date", value = NULL, min = NULL, max = NULL,
   format = "yyyy-mm-dd", startview = "month", weekstart = 0,
   language = "en", width = NULL, autoclose = TRUE,
   datesdisabled = NULL, daysofweekdisabled = NULL),
-  textInput("rec_time", "Start Time (xx:xx or xx:xx:xx)", value = init.time, width = NULL),
+  textInput("rec_time", "Start Time (xx:xx or xx:xx:xx)", value = init.time, width = NULL,
   placeholder = NULL),
-  fillRow(numericInput("srate","Sampling Frequency",value=250,min=1,max=1000),
+  numericInput("srate","Sampling Frequency",value=250,min=1,max=1000),
   fileInput("static_data", "Upload Data (EDF/CSV/BIN):", multiple = F, accept = c(".csv",".edf",".BIN"),
       width = NULL, buttonLabel = "Browse...",
-      placeholder = "No file selected")),
+      placeholder = "No file selected"),
   renderTable(head(ExG$ts)),size="l"
   )
 )
@@ -645,6 +446,7 @@ if(shiny_running()){
 ## Some features are implemented but disabled by the graph network
 ## No real ?eval expressions just some features (hard) evaluated
   observeEvent(input[["visnet_graphChange"]],{
+    print("CHANGE APPLIES")
     # If the user added a node, add it to the data frame of nodes.
     if(input[["visnet_graphChange"]][["cmd"]] == "addNode") {
       temp = bind_rows(
@@ -796,6 +598,7 @@ if(shiny_running()){
       graph_data$ECG=findexg(graph_data$nodes,graph_data$edges,2)
       graph_data$EOG=findexg(graph_data$nodes,graph_data$edges,3)
       graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
+      print("CHANGE ENDED")
 })
 }
 
@@ -972,306 +775,59 @@ if(shiny_running()){
 
 
 ```{r,edfoutput,echo=F}
-
+################################## CREATE EDF BY PATIENT DESCRIPTION #####################
+################################## LOADING SCREEN MISSING AND NOT WORKING IF FUNCTION IN DIFFERENT SCRIPT #####################
 if(shiny_running() ){
-output$downloadEDF <- downloadHandler(
-  filename = function(){paste0(input$pat_desc,"_",format(as.Date(ExG$posix),format="%d.%m.%y"),".edf")},
-  content = function(file){
-    edf_dat=ExG$freq[,paste0("Filtered",c(graph_data$EEG,graph_data$ECG,graph_data$EOG,graph_data$EMG))]
-    # edf_dat[,paste0("Filtered",graph_data$EEG)]=round(edf_dat[,paste0("Filtered",graph_data$EEG)],0)
-    # edf_dat[,paste0("Filtered",c(graph_data$ECG,graph_data$EOG,graph_data$EMG))]=
-    #   round(edf_dat[,paste0("Filtered",c(graph_data$ECG,graph_data$EOG,graph_data$EMG))]/1000,3)
-    unitz=c(rep("uV",length(graph_data$EEG)),rep("mV",length(c(graph_data$ECG,graph_data$EOG,graph_data$EMG))))
-    ##Transform unit according to Signal
-    # scaleExGsig<-function(df,eegs,ecgs,eogs,emgs){
-    #   df[,paste0("Filtered",eegs)]<-df[,paste0("Filtered",eegs)]*1000000
-    #   df[,paste0("Filtered",c(ecgs,eogs,emgs))]<-df[,paste0("Filtered",c(ecgs,eogs,emgs))]*1000
-    #   return(df)
-    # }
-    # edf_dat=scaleExGsig(edf_dat,graph_data$EEG,graph_data$ECG,graph_data$EOG,graph_data$EMG)
-
-    ## Could be better from source relation naming
-    snames=c(paste0("EEG",graph_data$EEG),
-             paste0("ECG",graph_data$ECG),
-             paste0("EOG",graph_data$EOG),
-             paste0("EMG",graph_data$EMG))
-
-    # prefilterings=c(rep(paste0("N:",input$stoppoint,"Hz L:",input$passband[1],"Hz H:",input$passband[2],"Hz"),
-    #                     length(graph_data$EEG)),
-    #                 rep(paste0("N:",0,"Hz L:",0,"Hz H:",2*ExG$srate,"Hz"),
-    #                     length(c(graph_data$ECG,graph_data$EOG,graph_data$EMG))))
-
-    prefilterings=c(filter_value(graph_data$nodes,graph_data$edges,s="EEG"),filter_value(graph_data$nodes,graph_data$edges,s="ECG"),filter_value(graph_data$nodes,graph_data$edges,s="EOG"),filter_value(graph_data$nodes,graph_data$edges,s="EMG"))
-    srs=rep(ExG$srate,ncol(edf_dat))
-
-    recId="None"
-    patId=input$pat_desc
-    startdate=format(as.Date(ExG$posix),format="%d.%m.%y")
-    starttime=strftime(ExG$posix,format = "%H.%M.%S")
-    fn=paste0(mainDir,"/",input$pat_desc,"_",startdate,".edf")
-signals=edf_dat
-
-  if(file.exists(fn)) {file.create(fn,overwrite=T)
-    }else{file.create(fn,overwrite=F)}
-  fid<-file(fn,'wb')
-  numSignals <- length(srs)
-
-  ## Mentalab Rounding
-  # signals=round(signals,2)
-
-  # Calculate recording length (in seconds)
-  recLength <- (-1)
-  for (k in 1:numSignals){
-    recLength <- max(recLength, length(signals[,k])/srs[k])
-  }
-  recLength <- ceiling(recLength)# Ceil to an integer number
-
-  # Asuming 1s databloack duration. Check possible incompatibilities
-  blockSizeBytes <- sum(2*srs)
-
-  if(blockSizeBytes > 61440){
-    print('Yet to be implemented: Signals cannot fit on a 1s datablock. Check for (other block size possibilities)')
-  } else {
-    blockSize <- 1
-    numBlocks <- recLength
-  }
-
-  general_header_size <- 256#bytes
-  one_signal_header_size <- 256#bytes
-
-  # Write edf
-
-  # FIXED HEADER
-  header.version <- 0
-  header.local_patient_identification <- patId
-  header.local_recording_identification <- recId
-  header.startdate_recording <- startdate
-  header.starttime_recording <- starttime
-  header.num_signals <- numSignals
-  header.num_bytes_header <- general_header_size + one_signal_header_size * numSignals
-  header.reserved <- ''
-  header.duration_data_record <- blockSize
-  header.num_data_records <- numBlocks
-
-  trimAndFillWithBlanks<-function(txt, maxLength, justify='left'){
-    # if(nargin == 2)justify = 'left'
-    if(nchar(txt) > maxLength){result = substr(txt,1,maxLength)
-    }else{
-      if(justify== 'right'){
-        result<-paste0(paste0(rep(" ",(maxLength-length(txt))),collapse=""),txt)}
-      else{
-        result<-paste0(txt,paste0(rep(" ",(maxLength-nchar(txt))),collapse=""))
-      }
+  output$downloadEDF <- downloadHandler(
+    filename = function(){paste0(input$pat_desc,"_",format(as.Date(ExG$posix),format="%d.%m.%y"),".edf")},
+    content = function(file){
+      fn=signals2EDF(mainDir=mainDir,pat_desc=input$pat_desc,ExG=ExG,graph_data=graph_data)
+      file.rename(fn, file)
     }
-    return(result)
-  }
-
-  writeBin(charToRaw(trimAndFillWithBlanks(header.version,8)),fid,endian = "little")# version
-  writeBin(charToRaw(trimAndFillWithBlanks(header.local_patient_identification,80)),fid,endian = "little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.local_recording_identification,80)),fid,endian = "little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.startdate_recording,8)),fid,endian = "little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.starttime_recording,8)),fid,endian = "little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.num_bytes_header,8)),fid,endian = "little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.reserved,44)),fid,endian="little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.num_data_records,8)),fid,endian = "little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.duration_data_record,8)),fid,endian = "little")
-  writeBin(charToRaw(trimAndFillWithBlanks(header.num_signals,4)),fid,endian = "little")
-
-  # SIGNAL DEPENDENT HEADER
-  signalOffsets <- rep(0, numSignals)# In bytes
-  header.signals_info=data.frame(label=rep("",numSignals),
-                                 transducer_type=rep("",numSignals),
-                                 physical_dimension=rep("",numSignals),
-                                 physical_min=rep("",numSignals),
-                                 physical_max=rep("",numSignals),
-                                 digital_min=rep("",numSignals),
-                                 digital_max=rep("",numSignals),
-                                 prefiltering=rep("",numSignals),
-                                 num_samples_datarecord=rep("",numSignals),
-                                 reserved=rep("",numSignals),
-                                 sample_rate=rep("",numSignals),
-                                 signalOffset=rep("",numSignals),stringsAsFactors = F)
-
-  # for(i in 1:ncol(header.signals_info)){
-  #   header.signals_info[colnames(header.signals_info)[i]]<-as.character(header.signals_info[colnames(header.signals_info)[i]])
-  # }
-
-  #Mentalab values
-  Pmins<-floor(unlist(lapply(signals,min)))
-  # Pmins<-floor(unlist(lapply(signals,max))[seq(2, ncol(signals)*5, 5)])
-  Pmaxs<-ceiling(unlist(lapply(signals,max)))
-  # Pmaxs<-ceiling(unlist(lapply(signals,quantile))[seq(4, ncol(signals)*5, 5)])
-  Dmins<-rep(-32768,numSignals)
-  Dmaxs<-rep(32767,numSignals)
-
-  if( (  log(    (max(abs(Dmins))+max(abs(Dmaxs))+1) ,2  ) / (max(abs(Pmins))+max(abs(Pmaxs)))    )  > 16 ){ print("Error, Accucracy to high, not 16 bit, either shrink distance !Dmin to Dmax!, or Pmin to Pmax")}
-
-  for (k in 1:numSignals){
-    header.signals_info[k,"label"] <- snames[k]
-    header.signals_info[k,"transducer_type"] <- ''
-    header.signals_info[k,"physical_dimension"] <- unitz[k]
-
-    header.signals_info[k,"physical_min"] <- Pmins[k]
-    header.signals_info[k,"physical_max"] <- Pmaxs[k]
-    header.signals_info[k,"digital_min"] <- Dmins[k]
-    header.signals_info[k,"digital_max"] <- Dmaxs[k]
-
-    header.signals_info[k,"prefiltering"] <- prefilterings[k]
-    header.signals_info[k,"num_samples_datarecord"] <- as.character(as.numeric(srs[k])*as.numeric(blockSize))
-    header.signals_info[k,"reserved"] <- ''
-    # NOTE: The two following are not specific EDF header fields, but are practical for EDF handling
-    header.signals_info[k,"sample_rate"] <- as.character(as.numeric(header.signals_info[k,"num_samples_datarecord"])/
-      as.numeric(header.duration_data_record))
-    if (k > 1){
-      signalOffsets[k] <- signalOffsets[k - 1] + 2 * as.numeric(header.signals_info[k - 1,"num_samples_datarecord"])
-    }
-    header.signals_info[k,"signalOffset"] <- signalOffsets[k]
-  }
-
-  # Write signal-dependent header to file
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(header.signals_info[k,"label"],16)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(header.signals_info[k,"transducer_type"],80)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(header.signals_info[k,"physical_dimension"],8)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(as.character(header.signals_info[k,"physical_min"]),8)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(as.character(header.signals_info[k,"physical_max"]),8)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(as.character(header.signals_info[k,"digital_min"]),8)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(as.character(header.signals_info[k,"digital_max"]),8)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(header.signals_info[k,"prefiltering"],80)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(as.character(header.signals_info[k,"num_samples_datarecord"]),8)),fid,endian="little")
-  }
-  for (k in 1:numSignals){
-    writeBin(charToRaw(trimAndFillWithBlanks(header.signals_info[k,"reserved"],32)),fid,endian="little")
-  }
-
-  # Check data starting point
-  current_position <-seek(fid)# in bytes
-  if (header.num_bytes_header!= current_position){
-    print('Something wrong could be happening: unexpected position at the beginning of the first data block')
-  }
-  bytes_full_data_record <- 2 * sum(as.numeric(unlist(header.signals_info["num_samples_datarecord"])))
-
-  # DATA WRITING
-
-
-  close(fid)
-
-  for (k in 1:numBlocks){
-    printmes=F
-    if((k %% 100)==0 & printmes==T)ExG$a=k
-    # Initialize datablock
-    data <- rep(0, bytes_full_data_record/2)# Num samples per data record
-
-    for (k1 in 1:numSignals){
-      offsetSignal <- (k - 1) * as.numeric(header.signals_info[k1,"num_samples_datarecord"]) + 1
-      onsetSignal <- min(offsetSignal + as.numeric(header.signals_info[k1,"num_samples_datarecord"]) - 1,
-                         length(signals[,k1]))
-      offsetDataBlock <- as.numeric(header.signals_info[k1,"signalOffset"])/2 + 1
-      onsetDataBlock <- offsetDataBlock +  onsetSignal-offsetSignal
-      data[offsetDataBlock:onsetDataBlock] <- as.integer(Dmins[k1] + (Dmaxs[k1] - Dmins[k1]) *
-                                                           ((signals[offsetSignal:onsetSignal,k1] - Pmins[k1])/(Pmaxs[k1] - Pmins[k1])))
-    }
-    if(max(int_to_unit(data))>65536)print("Error")
-    py$writeEDFbin(fn,data)
-  }
-
-
-    file.rename(fn, file)
-  }
-)
+  )
 }
-
-
-
 ```
-
-
 
 ### Sleep Spindles and QRS Detection
 
 ```{r}
-
-hrv_analysis<-function(rr,srate,mainDir){
-  library(RHRV)
-    #create correct data frame and turn on text info mode
-    write.table(rr/srate,paste0(mainDir,"/Data/rr.txt"),row.names = F, col.names = F,sep=",",dec=".")
-    hrv_df<-CreateHRVData()
-    hrv_df<-SetVerbose(hrv_df,Verbose=F)
-
-    #load data
-    hrv_df = LoadBeatAscii(hrv_df, "rr.txt",RecordPath = paste0(mainDir,"/Data/"))
-
-    # calculate non-interpolated RR intervals
-    hrv_df = BuildNIHR(hrv_df)
-
-    #filter unacceptable data points
-    hrv_df=FilterNIHR(hrv_df)
-
-    #interpolation neccessary for spectral analysis
-    hrv_df.freq = InterpolateNIHR (hrv_df, freqhr = 1)
-    hrv_df.freq = CreateFreqAnalysis(hrv_df.freq)
-
-    #Calculate and Plot Powerbands7make transparent
-    hrv_df.freq = CalculatePowerBand(hrv_df.freq, indexFreqAnalysis= 1,shift=2,size=30,
-                                                     type = "fourier",
-                                                     bandtolerance = 0.01, relative = FALSE)
-
-
-    #Create and Print Time Analysis
-    hrv_df.time = CreateTimeAnalysis(hrv_df, size = 300,interval = 7.8125)
-
-
-    # Nonlinear Analysis and Poincare Plot
-    hrv_df.nonlin = CreateNonLinearAnalysis(hrv_df)
-
-     return(list(hrv_df.freq,hrv_df.time,hrv_df.nonlin))
-  }
+############################### HRV ANALYSIS ###################################
+############################### SHOWS ERROR MESSAGE BEFORE QRS DETECTION ###################################
 
 if(shiny_running()){
-fillCol(renderTable({res=as.data.frame(ExG$hrv[[2]]["TimeAnalysis"])
-colnames(res)=unlist(lapply(strsplit(colnames(res),"TimeAnalysis."),function(x)x[[2]]))
-round(res,0)}),
-fillRow(
-renderPlot({PlotSinglePowerBand(ExG$hrv[[1]], 1, "LF/HF",doPlot=T,main="heart related stress adaption",                     eplim=c(min(ExG$hrv[[1]]$FreqAnalysis[[1]]$LFHF),max(ExG$hrv[[1]]$FreqAnalysis[[1]]$LFHF)))}),
-
-renderPlot({PoincarePlot(ExG$hrv[[3]],indexNonLinearAnalysis=1,timeLag=1, doPlot=T)})),flex=c(1,5))
+  fillCol(
+    renderTable({
+      res=as.data.frame(ExG$hrv[[2]]["TimeAnalysis"])
+      colnames(res)=unlist(lapply(strsplit(colnames(res),"TimeAnalysis."),function(x)x[[2]]))
+      round(res,0)
+      }),
+    fillRow(
+      renderPlot({PlotSinglePowerBand(ExG$hrv[[1]], 1, "LF/HF",doPlot=T,
+                                      main="heart related stress adaption",                 
+                                      eplim=c(min(ExG$hrv[[1]]$FreqAnalysis[[1]]$LFHF),
+                                              max(ExG$hrv[[1]]$FreqAnalysis[[1]]$LFHF)))
+        }),
+      renderPlot({
+        PoincarePlot(ExG$hrv[[3]],indexNonLinearAnalysis=1,timeLag=1, doPlot=T)
+        })
+      ),flex=c(1,5)
+  )
 }else{
+  ############################### FOR DISPLAY IN REPORT ###################################
+  ############################### CURRENTLY NOT WORKING ###################################
   kable(as.data.frame(EXG$hrv[[2]]["TimeAnalysis"]))
-
   PlotSinglePowerBand(EXG$hrv[[1]], 1, "LF/HF",doPlot=T,main="heart related stress adaption",                     eplim=c(min(EXG$hrv[[1]]$FreqAnalysis[[1]]$LFHF),max(EXG$hrv[[1]]$FreqAnalysis[[1]]$LFHF)))
   PoincarePlot(EXG$hrv[[3]],indexNonLinearAnalysis=1,timeLag=1, doPlot=T)
-
-
-
 }
-```
 
+```
 
 ***
 
-
 ```{r}
-
 if(shiny_running()){
   sliderInput("L", label = "Window Length", min = 10,max = 50, value = 30,step=1)
 }
-
 
 if(shiny_running()){
   # dropdown(
@@ -1317,11 +873,7 @@ if(shiny_running()){
 
 ```
 
-
-
-
 ### Singular Spectrum Analysis - Manual Clustering: Click on Component (red square) -> Click on Component in New Cluster
-
 
 ```{r, staging table and SSA plot}
 if(shiny_running()){
@@ -1814,9 +1366,8 @@ observeEvent(input$upRater,{
 ```
 
 ```{r}
-
-## interactive update window
-
+################################### DYGRAPH EDIT FOR LARGE DATA #################################
+################################### ERROR: DOES NOT DIGEST NEW DATA #################################
 if(shiny_running()){
 observeEvent({c(input[["dygraph_date_window"]],
                 input$disp_chan,
@@ -1824,145 +1375,145 @@ observeEvent({c(input[["dygraph_date_window"]],
                input$disp_ssa)},
   {
   ##Check current display ranges range,timezone conversion etc.
-  r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60
-  r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60
-  range=c(r1,r2)
-  d_range=difftime(range[2],range[1],units="secs")
-  resize=F
-  redat=F
-  ## Resolution changed? "bird" -hour, "time"-minute, "detail" -second
-  ## if so data need to be resampled resize=T
-  if(d_range<20 & ExG$sight!="detail"){
-    resize=T
-    ExG$sight="detail"
-  }
-  if((d_range>=20 ) & ExG$sight!="time"){
-    resize=T
-    ExG$sight="time"
-  }
-  # if((d_range>=60*30 & d_range<60*60*24) & ExG$sight!="bird"){
+  # r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60
+  # r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60
+  # range=c(r1,r2)
+  # d_range=difftime(range[2],range[1],units="secs")
+  # resize=F
+  # redat=F
+  # ## Resolution changed? "bird" -hour, "time"-minute, "detail" -second
+  # ## if so data need to be resampled resize=T
+  # if(d_range<20 & ExG$sight!="detail"){
   #   resize=T
-  #   ExG$sight="bird"
+  #   ExG$sight="detail"
   # }
-
-  ## Select Channels to display - mutually exclusive for Source and Channel
-  if(!is.null(input$disp_chan)){
-    ## Check for mutually exclusive groups - not working
-    if(!all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))|
-       !all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))){newdata=T
-       }else{newdata=F}
-  }else{
-    if(!is.null(colnames(ExG$orig.chan))){newdata=T}else{newdata=F}
-  }
-
-  #if anything is not displayed already
-  if(newdata){
-    redat=T
-    tmp=xts(rep(NA,length(index(ExG$freq))),index(ExG$freq))
-    colnames(tmp)="Empty"
-    if(!is.null(input$disp_chan)){
-      for(i in 1:length(input$disp_chan)){
-          tmp=merge(tmp,ExG$freq[,paste0("Filtered",input$disp_chan[i])])
-      }
-    ExG$orig.chan=tmp[,colSums(is.na(tmp))<1000]
-    }else{
-    ExG$orig.chan=tmp
-    }
-    ExG$colors=c("#ffffe5","#f7fcb9","#d9f0a3","#addd8e","#78c679","#41ab5d","#238443","#005a32")[
-      colnames(ExG$freq) %in% sort(paste0("Filtered",input$disp_chan))
-    ]
-  }
-
-
-  newclust=(!all(input$disp_ssa %in% colnames(ExG$orig.ssa)))|
-    (!all(colnames(ExG$orig.ssa) %in% input$disp_ssa))
-
-  if(redat|newclust){
-    redat=T
-    tmp=ExG$orig.chan
-    # if(input$clust_disp){
-      # ExG$rssa<-recons(ExG$ssa,ExG$gssa,stacked = F)
-    # }else{
-    #   ExG$rssa<-recons(ExG$ssa,ExG$gssa,separate = T)
-    #}
-    for(i in input$disp_ssa){
-      tmp=merge(tmp, ExG$rssa[,i])
-    }
-    ExG$orig.ssa=tmp
-  }
-
-  ## Check if alpha band is already displayed, not clean
-  test_q1=(!any(grepl("Alp",colnames(ExG$orig.disp))) & "Bandpower" %in% input[["disp_event"]])|
-      (any(grepl("Alp",colnames(ExG$orig.disp))) & !("Bandpower" %in% input[["disp_event"]]))
-
-  # Check not implemented
-  # test_q2=(all(graph_data$EEG %in% colnames(ExG$orig.disp)) & !("Raw Signal" %in% input$disp_event))|
-  #               (!all(graph_data$EEG %in% colnames(ExG$orig.disp)) & ( "Raw Signal" %in% input$disp_event))
-
-  if(test_q1|redat){
-    # if(input$clust_disp){}
-      redat=T
-      tmp=ExG$orig.ssa
-      # if("Raw Signal" %in% input$disp_event){
-      #   tmp=merge(tmp,ExG$ts[,unlist(lapply(strsplit(colnames(ExG$orig.chan),"Filtered"),function(x)x[[2]]))])}
-      if("Bandpower" %in% input$disp_event){tmp=merge(tmp,ExG$bandpower)}
-      ExG$orig.disp=tmp
-  }
-
-  ## Update Resolution of data
-  if(range[2]>min(last(index(ExG$orig.disp)),ExG$resol[2])||
-        range[1]<max(first(index(ExG$orig.disp)),ExG$resol[1])||
-     resize||redat){
-    ## if new data selection, dont change resolution borders
-    if(!redat){
-      r1=max(first(index(ExG$orig.disp)),range[1]-10*d_range)
-      r2=min(last(index(ExG$orig.disp)),range[2]+10*d_range)
-    }else{
-      # a=range[1]
-      # b=range[2]
-    }
-    redat=F
-      #Seconds down to full
-    if(ExG$sight=="detail"){
-      if(r1!=first(index(ExG$orig.disp))){
-        ## downsample out of scope to minutes, rest complete
-          tmp=rbind(
-            downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*250),
-            window(ExG$orig.disp,start=r1,end=r2))
-      }else tmp=window(ExG$orig.disp,start=r1,end=r2)
-      if(r2!=last(index(ExG$orig.disp))){
-          tmp=rbind(tmp,
-          downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),250*60))}
-      }
-        # Minutes , down to seconds
-    if(ExG$sight=="time"){
-        if(r1!=first(index(ExG$orig.disp))){
-          ## downsample out of scope to minutes, rest to seconds
-          tmp=rbind(
-              downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),250*60),
-              downsample(window(ExG$orig.disp,start=r1,end=r2),250))
-          }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),250)
-          if(r2!=last(index(ExG$orig.disp))){
-            tmp=rbind(tmp,
-            downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),250*60))}
-    }
-      # hours down to minutes
-      # if(ExG$sight=="bird"){
-      #   if(a!=first(index(ExG$orig.disp))){
-      #       tmp=rbind(
-      #         downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=a),250*60*10),
-      #         downsample(window(ExG$orig.disp,start=a,end=b),250*60))
-      #       }else{
-      #           tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
-      #         }
-      #     if(b!=last(index(ExG$orig.disp))){
-      #       tmp=rbind(tmp,
-      #       downsample(window(ExG$orig.disp,start=b,end=last(index(ExG$orig.disp))),250*60*10))
-      #       }
-      # }
-      ExG$resol=c(r1,r2)
-     ExG$disp=tmp
-    }
+  # if((d_range>=20 ) & ExG$sight!="time"){
+  #   resize=T
+  #   ExG$sight="time"
+  # }
+  # # if((d_range>=60*30 & d_range<60*60*24) & ExG$sight!="bird"){
+  # #   resize=T
+  # #   ExG$sight="bird"
+  # # }
+  # 
+  # ## Select Channels to display - mutually exclusive for Source and Channel
+  # if(!is.null(input$disp_chan)){
+  #   ## Check for mutually exclusive groups - not working
+  #   if(!all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))|
+  #      !all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))){newdata=T
+  #      }else{newdata=F}
+  # }else{
+  #   if(!is.null(colnames(ExG$orig.chan))){newdata=T}else{newdata=F}
+  # }
+  # 
+  # #if anything is not displayed already
+  # if(newdata){
+  #   redat=T
+  #   tmp=xts(rep(NA,length(index(ExG$freq))),index(ExG$freq))
+  #   colnames(tmp)="Empty"
+  #   if(!is.null(input$disp_chan)){
+  #     for(i in 1:length(input$disp_chan)){
+  #         tmp=merge(tmp,ExG$freq[,paste0("Filtered",input$disp_chan[i])])
+  #     }
+  #   ExG$orig.chan=tmp[,colSums(is.na(tmp))<1000]
+  #   }else{
+  #   ExG$orig.chan=tmp
+  #   }
+  #   ExG$colors=c("#ffffe5","#f7fcb9","#d9f0a3","#addd8e","#78c679","#41ab5d","#238443","#005a32")[
+  #     colnames(ExG$freq) %in% sort(paste0("Filtered",input$disp_chan))
+  #   ]
+  # }
+  # 
+  # 
+  # newclust=(!all(input$disp_ssa %in% colnames(ExG$orig.ssa)))|
+  #   (!all(colnames(ExG$orig.ssa) %in% input$disp_ssa))
+  # 
+  # if(redat|newclust){
+  #   redat=T
+  #   tmp=ExG$orig.chan
+  #   # if(input$clust_disp){
+  #     # ExG$rssa<-recons(ExG$ssa,ExG$gssa,stacked = F)
+  #   # }else{
+  #   #   ExG$rssa<-recons(ExG$ssa,ExG$gssa,separate = T)
+  #   #}
+  #   for(i in input$disp_ssa){
+  #     tmp=merge(tmp, ExG$rssa[,i])
+  #   }
+  #   ExG$orig.ssa=tmp
+  # }
+  # 
+  # ## Check if alpha band is already displayed, not clean
+  # test_q1=(!any(grepl("Alp",colnames(ExG$orig.disp))) & "Bandpower" %in% input[["disp_event"]])|
+  #     (any(grepl("Alp",colnames(ExG$orig.disp))) & !("Bandpower" %in% input[["disp_event"]]))
+  # 
+  # # Check not implemented
+  # # test_q2=(all(graph_data$EEG %in% colnames(ExG$orig.disp)) & !("Raw Signal" %in% input$disp_event))|
+  # #               (!all(graph_data$EEG %in% colnames(ExG$orig.disp)) & ( "Raw Signal" %in% input$disp_event))
+  # 
+  # if(test_q1|redat){
+  #   # if(input$clust_disp){}
+  #     redat=T
+  #     tmp=ExG$orig.ssa
+  #     # if("Raw Signal" %in% input$disp_event){
+  #     #   tmp=merge(tmp,ExG$ts[,unlist(lapply(strsplit(colnames(ExG$orig.chan),"Filtered"),function(x)x[[2]]))])}
+  #     if("Bandpower" %in% input$disp_event){tmp=merge(tmp,ExG$bandpower)}
+  #     ExG$orig.disp=tmp
+  # }
+  # 
+  # ## Update Resolution of data
+  # if(range[2]>min(last(index(ExG$orig.disp)),ExG$resol[2])||
+  #       range[1]<max(first(index(ExG$orig.disp)),ExG$resol[1])||
+  #    resize||redat){
+  #   ## if new data selection, dont change resolution borders
+  #   if(!redat){
+  #     r1=max(first(index(ExG$orig.disp)),range[1]-10*d_range)
+  #     r2=min(last(index(ExG$orig.disp)),range[2]+10*d_range)
+  #   }else{
+  #     # a=range[1]
+  #     # b=range[2]
+  #   }
+  #   redat=F
+  #     #Seconds down to full
+  #   if(ExG$sight=="detail"){
+  #     if(r1!=first(index(ExG$orig.disp))){
+  #       ## downsample out of scope to minutes, rest complete
+  #         tmp=rbind(
+  #           downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*250),
+  #           window(ExG$orig.disp,start=r1,end=r2))
+  #     }else tmp=window(ExG$orig.disp,start=r1,end=r2)
+  #     if(r2!=last(index(ExG$orig.disp))){
+  #         tmp=rbind(tmp,
+  #         downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),250*60))}
+  #     }
+  #       # Minutes , down to seconds
+  #   if(ExG$sight=="time"){
+  #       if(r1!=first(index(ExG$orig.disp))){
+  #         ## downsample out of scope to minutes, rest to seconds
+  #         tmp=rbind(
+  #             downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),250*60),
+  #             downsample(window(ExG$orig.disp,start=r1,end=r2),250))
+  #         }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),250)
+  #         if(r2!=last(index(ExG$orig.disp))){
+  #           tmp=rbind(tmp,
+  #           downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),250*60))}
+  #   }
+  #     # hours down to minutes
+  #     # if(ExG$sight=="bird"){
+  #     #   if(a!=first(index(ExG$orig.disp))){
+  #     #       tmp=rbind(
+  #     #         downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=a),250*60*10),
+  #     #         downsample(window(ExG$orig.disp,start=a,end=b),250*60))
+  #     #       }else{
+  #     #           tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
+  #     #         }
+  #     #     if(b!=last(index(ExG$orig.disp))){
+  #     #       tmp=rbind(tmp,
+  #     #       downsample(window(ExG$orig.disp,start=b,end=last(index(ExG$orig.disp))),250*60*10))
+  #     #       }
+  #     # }
+  #     ExG$resol=c(r1,r2)
+  #    ExG$disp=tmp
+  #   }
 })
 }
 ```

@@ -8,7 +8,6 @@ to_day<-function(base, now){
   return(res)
 }
 
-
 downsample<-function(df,dsrate){
     res=xts()
     sq_space=seq(0,nrow(df),by=dsrate)
@@ -38,11 +37,47 @@ mean2<-function(x)mean(x,na.rm=T)
 # sumisna<-function(x)sum(is.na(x))
 # sum2<-function(x)sum(x,na.rm=T)
 
-signals2EDF <- function(signals, srs, patId, recId, snames, startdate, starttime,  unitz, 
-                        prefilterings, filename,printmes=F){
+signals2EDF <- function(filename,ExG,graph_data){
   if(file.exists(filename)) {file.create(filename,overwrite=T)
     }else{file.create(filename,overwrite=F)}
   fid<-file(filename,'wb')
+  edf_dat=ExG$freq[,paste0("Filtered",c(graph_data$EEG,graph_data$ECG,graph_data$EOG,graph_data$EMG))]
+  # edf_dat[,paste0("Filtered",graph_data$EEG)]=round(edf_dat[,paste0("Filtered",graph_data$EEG)],0)
+  # edf_dat[,paste0("Filtered",c(graph_data$ECG,graph_data$EOG,graph_data$EMG))]=
+  #   round(edf_dat[,paste0("Filtered",c(graph_data$ECG,graph_data$EOG,graph_data$EMG))]/1000,3)
+  unitz=c(rep("uV",length(graph_data$EEG)),rep("mV",length(c(graph_data$ECG,graph_data$EOG,graph_data$EMG))))
+  ##Transform unit according to Signal
+  # scaleExGsig<-function(df,eegs,ecgs,eogs,emgs){
+  #   df[,paste0("Filtered",eegs)]<-df[,paste0("Filtered",eegs)]*1000000
+  #   df[,paste0("Filtered",c(ecgs,eogs,emgs))]<-df[,paste0("Filtered",c(ecgs,eogs,emgs))]*1000
+  #   return(df)
+  # }
+  # edf_dat=scaleExGsig(edf_dat,graph_data$EEG,graph_data$ECG,graph_data$EOG,graph_data$EMG)
+  
+  ## Could be better from source relation naming
+  snames=c(paste0("EEG",graph_data$EEG),
+           paste0("ECG",graph_data$ECG),
+           paste0("EOG",graph_data$EOG),
+           paste0("EMG",graph_data$EMG))
+  
+  # prefilterings=c(rep(paste0("N:",input$stoppoint,"Hz L:",input$passband[1],"Hz H:",input$passband[2],"Hz"),
+  #                     length(graph_data$EEG)),
+  #                 rep(paste0("N:",0,"Hz L:",0,"Hz H:",2*ExG$srate,"Hz"),
+  #                     length(c(graph_data$ECG,graph_data$EOG,graph_data$EMG))))
+  
+  prefilterings=c(filter_value(graph_data$nodes,graph_data$edges,s="EEG"),filter_value(graph_data$nodes,graph_data$edges,s="ECG"),filter_value(graph_data$nodes,graph_data$edges,s="EOG"),filter_value(graph_data$nodes,graph_data$edges,s="EMG"))
+  srs=rep(ExG$srate,ncol(edf_dat))
+  
+  recId="None"
+  patId=pat_desc
+  startdate=format(as.Date(ExG$posix),format="%d.%m.%y")
+  starttime=strftime(ExG$posix,format = "%H.%M.%S")
+  fn=paste0(mainDir,"/",pat_desc,"_",startdate,".edf")
+  signals=edf_dat
+  
+  if(file.exists(fn)) {file.create(fn,overwrite=T)
+  }else{file.create(fn,overwrite=F)}
+  fid<-file(fn,'wb')
   numSignals <- length(srs)
   
   ## Mentalab Rounding
@@ -88,7 +123,7 @@ signals2EDF <- function(signals, srs, patId, recId, snames, startdate, starttime
     }else{
       if(justify== 'right'){
         result<-paste0(paste0(rep(" ",(maxLength-length(txt))),collapse=""),txt)}
-      else{ 
+      else{
         result<-paste0(txt,paste0(rep(" ",(maxLength-nchar(txt))),collapse=""))
       }
     }
@@ -149,8 +184,8 @@ signals2EDF <- function(signals, srs, patId, recId, snames, startdate, starttime
     header.signals_info[k,"num_samples_datarecord"] <- as.character(as.numeric(srs[k])*as.numeric(blockSize))
     header.signals_info[k,"reserved"] <- ''
     # NOTE: The two following are not specific EDF header fields, but are practical for EDF handling
-    header.signals_info[k,"sample_rate"] <- as.character(as.numeric(header.signals_info[k,"num_samples_datarecord"])/ 
-      as.numeric(header.duration_data_record))
+    header.signals_info[k,"sample_rate"] <- as.character(as.numeric(header.signals_info[k,"num_samples_datarecord"])/
+                                                           as.numeric(header.duration_data_record))
     if (k > 1){
       signalOffsets[k] <- signalOffsets[k - 1] + 2 * as.numeric(header.signals_info[k - 1,"num_samples_datarecord"])
     }
@@ -202,7 +237,8 @@ signals2EDF <- function(signals, srs, patId, recId, snames, startdate, starttime
   close(fid)
   
   for (k in 1:numBlocks){
-    if((k %% 100)==0 & printmes==T)print(k)
+    printmes=F
+    if((k %% 100)==0 & printmes==T)ExG$a=k
     # Initialize datablock
     data <- rep(0, bytes_full_data_record/2)# Num samples per data record
     
@@ -212,12 +248,14 @@ signals2EDF <- function(signals, srs, patId, recId, snames, startdate, starttime
                          length(signals[,k1]))
       offsetDataBlock <- as.numeric(header.signals_info[k1,"signalOffset"])/2 + 1
       onsetDataBlock <- offsetDataBlock +  onsetSignal-offsetSignal
-      data[offsetDataBlock:onsetDataBlock] <- as.integer(Dmins[k1] + (Dmaxs[k1] - Dmins[k1]) * 
+      data[offsetDataBlock:onsetDataBlock] <- as.integer(Dmins[k1] + (Dmaxs[k1] - Dmins[k1]) *
                                                            ((signals[offsetSignal:onsetSignal,k1] - Pmins[k1])/(Pmaxs[k1] - Pmins[k1])))
     }
     if(max(int_to_unit(data))>65536)print("Error")
     py$writeEDFbin(fn,data)
+    return(fn)
   }
+  
 }
 
 freq_filter<-function(x,srate,n,bw,eegs){
