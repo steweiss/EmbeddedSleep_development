@@ -1369,152 +1369,188 @@ observeEvent(input$upRater,{
 ################################### DYGRAPH EDIT FOR LARGE DATA #################################
 ################################### ERROR: DOES NOT DIGEST NEW DATA #################################
 if(shiny_running()){
-observeEvent({c(input[["dygraph_date_window"]],
-                input$disp_chan,
-               input$disp_event,
-               input$disp_ssa)},
+eventReactive({c(input[["dygraph_date_window"]])},
   {
+    if(!ExG$newfile){
   ##Check current display ranges range,timezone conversion etc.
-  # r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60
-  # r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60
-  # range=c(r1,r2)
-  # d_range=difftime(range[2],range[1],units="secs")
-  # resize=F
-  # redat=F
-  # ## Resolution changed? "bird" -hour, "time"-minute, "detail" -second
-  # ## if so data need to be resampled resize=T
-  # if(d_range<20 & ExG$sight!="detail"){
+  r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60
+  r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60
+  range=c(r1,r2)
+  d_range=difftime(range[2],range[1],units="secs")
+  resize=F
+  ## Resolution changed? "bird" -hour, "time"-minute, "detail" -second
+  ## if so data need to be resampled resize=T
+  if(d_range<60 & ExG$sight!="detail"){
+    resize=T
+    ExG$sight="detail"
+  }
+  if((d_range>=60 ) & ExG$sight!="time"){
+    resize=T
+    ExG$sight="time"
+  }
+  # if((d_range>=60*30 & d_range<60*60*24) & ExG$sight!="bird"){
   #   resize=T
-  #   ExG$sight="detail"
+  #   ExG$sight="bird"
   # }
-  # if((d_range>=20 ) & ExG$sight!="time"){
-  #   resize=T
-  #   ExG$sight="time"
-  # }
-  # # if((d_range>=60*30 & d_range<60*60*24) & ExG$sight!="bird"){
-  # #   resize=T
-  # #   ExG$sight="bird"
-  # # }
-  # 
-  # ## Select Channels to display - mutually exclusive for Source and Channel
-  # if(!is.null(input$disp_chan)){
-  #   ## Check for mutually exclusive groups - not working
-  #   if(!all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))|
-  #      !all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))){newdata=T
-  #      }else{newdata=F}
-  # }else{
-  #   if(!is.null(colnames(ExG$orig.chan))){newdata=T}else{newdata=F}
-  # }
-  # 
-  # #if anything is not displayed already
-  # if(newdata){
-  #   redat=T
-  #   tmp=xts(rep(NA,length(index(ExG$freq))),index(ExG$freq))
-  #   colnames(tmp)="Empty"
-  #   if(!is.null(input$disp_chan)){
-  #     for(i in 1:length(input$disp_chan)){
-  #         tmp=merge(tmp,ExG$freq[,paste0("Filtered",input$disp_chan[i])])
-  #     }
-  #   ExG$orig.chan=tmp[,colSums(is.na(tmp))<1000]
-  #   }else{
-  #   ExG$orig.chan=tmp
-  #   }
-  #   ExG$colors=c("#ffffe5","#f7fcb9","#d9f0a3","#addd8e","#78c679","#41ab5d","#238443","#005a32")[
-  #     colnames(ExG$freq) %in% sort(paste0("Filtered",input$disp_chan))
-  #   ]
-  # }
-  # 
-  # 
-  # newclust=(!all(input$disp_ssa %in% colnames(ExG$orig.ssa)))|
-  #   (!all(colnames(ExG$orig.ssa) %in% input$disp_ssa))
-  # 
-  # if(redat|newclust){
-  #   redat=T
-  #   tmp=ExG$orig.chan
-  #   # if(input$clust_disp){
-  #     # ExG$rssa<-recons(ExG$ssa,ExG$gssa,stacked = F)
-  #   # }else{
-  #   #   ExG$rssa<-recons(ExG$ssa,ExG$gssa,separate = T)
-  #   #}
-  #   for(i in input$disp_ssa){
-  #     tmp=merge(tmp, ExG$rssa[,i])
-  #   }
-  #   ExG$orig.ssa=tmp
-  # }
-  # 
-  # ## Check if alpha band is already displayed, not clean
-  # test_q1=(!any(grepl("Alp",colnames(ExG$orig.disp))) & "Bandpower" %in% input[["disp_event"]])|
-  #     (any(grepl("Alp",colnames(ExG$orig.disp))) & !("Bandpower" %in% input[["disp_event"]]))
-  # 
-  # # Check not implemented
-  # # test_q2=(all(graph_data$EEG %in% colnames(ExG$orig.disp)) & !("Raw Signal" %in% input$disp_event))|
-  # #               (!all(graph_data$EEG %in% colnames(ExG$orig.disp)) & ( "Raw Signal" %in% input$disp_event))
-  # 
-  # if(test_q1|redat){
-  #   # if(input$clust_disp){}
-  #     redat=T
-  #     tmp=ExG$orig.ssa
-  #     # if("Raw Signal" %in% input$disp_event){
-  #     #   tmp=merge(tmp,ExG$ts[,unlist(lapply(strsplit(colnames(ExG$orig.chan),"Filtered"),function(x)x[[2]]))])}
-  #     if("Bandpower" %in% input$disp_event){tmp=merge(tmp,ExG$bandpower)}
-  #     ExG$orig.disp=tmp
-  # }
-  # 
-  # ## Update Resolution of data
-  # if(range[2]>min(last(index(ExG$orig.disp)),ExG$resol[2])||
-  #       range[1]<max(first(index(ExG$orig.disp)),ExG$resol[1])||
-  #    resize||redat){
-  #   ## if new data selection, dont change resolution borders
-  #   if(!redat){
-  #     r1=max(first(index(ExG$orig.disp)),range[1]-10*d_range)
-  #     r2=min(last(index(ExG$orig.disp)),range[2]+10*d_range)
-  #   }else{
-  #     # a=range[1]
-  #     # b=range[2]
-  #   }
-  #   redat=F
-  #     #Seconds down to full
-  #   if(ExG$sight=="detail"){
+
+  ## Update Resolution of data
+  if(range[2]>min(last(index(ExG$orig.disp)),ExG$resol[2])||
+     range[1]<max(first(index(ExG$orig.disp)),ExG$resol[1])||
+     resize){
+    ## if new data selection, dont change resolution borders
+    # if(!ExG$redat){
+    #
+    # }else{
+    #   r1=range[1]
+    #   r2=range[2]
+    # }
+    r1=max(first(index(ExG$orig.disp)),range[1]-10*d_range)
+    r2=min(last(index(ExG$orig.disp)),range[2]+10*d_range)
+      #Seconds down to full
+    if(ExG$sight=="detail"){
+      if(r1!=first(index(ExG$orig.disp))){
+        ## downsample out of scope to minutes, rest complete
+          tmp=rbind(
+            downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*ExG$srate*5),
+            window(ExG$orig.disp,start=r1,end=r2))
+      }else tmp=window(ExG$orig.disp,start=r1,end=r2)
+      if(r2!=last(index(ExG$orig.disp))){
+          tmp=rbind(tmp,
+          downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate*60*5))}
+      }
+        # Minutes , down to seconds
+    if(ExG$sight=="time"){
+        if(r1!=first(index(ExG$orig.disp))){
+          ## downsample out of scope to minutes, rest to seconds
+          tmp=rbind(
+              downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),ExG$srate),
+              downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate))
+          }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)
+          if(r2!=last(index(ExG$orig.disp))){
+            tmp=rbind(tmp,
+            downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate))}
+    }
+      # hours down to minutes
+      # if(ExG$sight=="bird"){
+      #   if(a!=first(index(ExG$orig.disp))){
+      #       tmp=rbind(
+      #         downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=a),250*60*10),
+      #         downsample(window(ExG$orig.disp,start=a,end=b),250*60))
+      #       }else{
+      #           tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
+      #         }
+      #     if(b!=last(index(ExG$orig.disp))){
+      #       tmp=rbind(tmp,
+      #       downsample(window(ExG$orig.disp,start=b,end=last(index(ExG$orig.disp))),250*60*10))
+      #       }
+      # }
+      ExG$resol=c(r1,r2)
+      ExG$disp=tmp
+  }
+    }else{
+      Sys.sleep(5)
+       ExG$newfile=F
+     }
+})
+}
+
+if(shiny_running()){
+observeEvent({c(input$disp_chan,
+                input$disp_event,
+                input$disp_ssa)},
+  {
+  # Select Channels to display - mutually exclusive for Source and Channel
+  if(!is.null(input$disp_chan)){
+    ## Check for mutually exclusive groups - not working
+    if(!all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))|
+       !all(colnames(ExG$orig.chan) %in% paste0("Filtered",input$disp_chan))){newdata=T}else{newdata=F}
+  }else{
+    if(!is.null(colnames(ExG$orig.chan))){newdata=T}else{newdata=F}
+  }
+
+  #if anything is not displayed already
+  if(newdata){
+    tmp=xts(rep(NA,length(index(ExG$freq))),index(ExG$freq))
+    colnames(tmp)="Empty"
+    if(!is.null(input$disp_chan)){
+      for(i in 1:length(input$disp_chan)){
+          tmp=merge(tmp,ExG$freq[,paste0("Filtered",input$disp_chan[i])])
+      }
+    ExG$orig.chan=tmp[,colSums(is.na(tmp))<1000]
+    }else{
+    ExG$orig.chan=tmp
+    }
+    # ExG$colors=c("#ffffe5","#f7fcb9","#d9f0a3","#addd8e","#78c679","#41ab5d","#238443","#005a32")[
+    #   colnames(ExG$freq) %in% sort(paste0("Filtered",input$disp_chan))
+    # ]
+  }
+  newclust=(!all(input$disp_ssa %in% colnames(ExG$orig.ssa)))|
+    (!all(colnames(ExG$orig.ssa) %in% input$disp_ssa))
+  if(newdata|newclust){
+    tmp=ExG$orig.chan
+    # if(input$clust_disp){
+      # ExG$rssa<-recons(ExG$ssa,ExG$gssa,stacked = F)
+    # }else{
+    #   ExG$rssa<-recons(ExG$ssa,ExG$gssa,separate = T)
+    #}
+    for(i in input$disp_ssa){
+      tmp=merge(tmp, ExG$rssa[,i])
+    }
+    ExG$orig.ssa=tmp
+  }
+
+  ## Check if alpha band is already displayed, not clean
+  test_q1=(!any(grepl("BP",colnames(ExG$orig.disp))) & "Bandpower" %in% input[["disp_event"]])|
+      (any(grepl("BP",colnames(ExG$orig.disp))) & !("Bandpower" %in% input[["disp_event"]]))
+
+  # Check not implemented
+  # test_q2=(all(graph_data$EEG %in% colnames(ExG$orig.disp)) & !("Raw Signal" %in% input$disp_event))|
+  #               (!all(graph_data$EEG %in% colnames(ExG$orig.disp)) & ( "Raw Signal" %in% input$disp_event))
+
+  if(test_q1|newdata|newclust){
+    # if(input$clust_disp){}
+    tmp=ExG$orig.ssa
+    # if("Raw Signal" %in% input$disp_event){
+    #   tmp=merge(tmp,ExG$ts[,unlist(lapply(strsplit(colnames(ExG$orig.chan),"Filtered"),function(x)x[[2]]))])   }
+  if("Bandpower" %in% input$disp_event){tmp=merge(tmp,ExG$bandpower)}
+    ##Downsample already
+    ExG$orig.disp=list("bird"=downsample(tmp,250*5),"minute"=downsample(tmp,250),"detail"=tmp)
+  }
+  # switch for resolution
+  # if(ExG$redat==F){ExG$redat=T}else{ExG$redat=F}
+  
+  
+  r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60
+  r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60
+  range=c(r1,r2)
+  d_range=difftime(range[2],range[1],units="secs")
+  # if(ExG$sight=="detail"){
   #     if(r1!=first(index(ExG$orig.disp))){
   #       ## downsample out of scope to minutes, rest complete
   #         tmp=rbind(
-  #           downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*250),
+  #           downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*ExG$srate*5),
   #           window(ExG$orig.disp,start=r1,end=r2))
   #     }else tmp=window(ExG$orig.disp,start=r1,end=r2)
   #     if(r2!=last(index(ExG$orig.disp))){
   #         tmp=rbind(tmp,
-  #         downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),250*60))}
+  #         downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate*60*5))}
   #     }
   #       # Minutes , down to seconds
   #   if(ExG$sight=="time"){
   #       if(r1!=first(index(ExG$orig.disp))){
   #         ## downsample out of scope to minutes, rest to seconds
   #         tmp=rbind(
-  #             downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),250*60),
-  #             downsample(window(ExG$orig.disp,start=r1,end=r2),250))
-  #         }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),250)
+  #             downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),ExG$srate),
+  #             downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate))
+  #         }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)
   #         if(r2!=last(index(ExG$orig.disp))){
   #           tmp=rbind(tmp,
-  #           downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),250*60))}
+  #           downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate))}
   #   }
-  #     # hours down to minutes
-  #     # if(ExG$sight=="bird"){
-  #     #   if(a!=first(index(ExG$orig.disp))){
-  #     #       tmp=rbind(
-  #     #         downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=a),250*60*10),
-  #     #         downsample(window(ExG$orig.disp,start=a,end=b),250*60))
-  #     #       }else{
-  #     #           tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
-  #     #         }
-  #     #     if(b!=last(index(ExG$orig.disp))){
-  #     #       tmp=rbind(tmp,
-  #     #       downsample(window(ExG$orig.disp,start=b,end=last(index(ExG$orig.disp))),250*60*10))
-  #     #       }
-  #     # }
-  #     ExG$resol=c(r1,r2)
-  #    ExG$disp=tmp
-  #   }
-})
+    ExG$resol=c(r1,r2)
+    ExG$disp=tmp
+
+    })
 }
 ```
 
