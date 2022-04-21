@@ -58,7 +58,7 @@ loadpackage<-function(x){
   }
 }
 ################################ POSSIBLE UNNESSECARY PACKAGES / CHECK SORT FOR READABILITY ##############################
-loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","kableExtra","xts","eegUtils","dlm","forecast","signal",
+loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","future","kableExtra","xts","eegUtils","dlm","forecast","signal",
               "rmarkdown","plotly","visNetwork","Rssa","RHRV","data.table","DT","shinyTime","shinyWidgets","dygraphs","ggplotify","cowplot","tidyr"))
 
 demoMode<<-F ######################## SHOULD BE DELETED 
@@ -374,10 +374,141 @@ observeEvent(input$upload,{
   fileInput("static_data", "Upload Data (EDF/CSV/BIN):", multiple = F, accept = c(".csv",".edf",".BIN"),
       width = NULL, buttonLabel = "Browse...",
       placeholder = "No file selected"),
+  switchInput(inputId = "rec_btn",label = "Bluetoot device name", labelWidth = "80px"),
   renderTable(head(ExG$ts)),size="l"
   )
 )
 })
+}
+
+if(shiny_running()){
+  observeEvent(input$rec_btn,{
+     
+    plan(multisession)
+    ############ MOCKUP SCRIPT ##################
+    v %<-% {
+      tmp=lorenz(sigma = 10, beta = 8/3, rho = 28,
+                start = c(5, 5, 5), time = seq(0, 10000, by = 0.01),
+                do.plot = F)
+      tmp
+      }
+    Sys.sleep(5)
+    tmp=data.frame(Fp1=v[["x"]],F1=v[["y"]],C3=v[["z"]])
+    
+    ########### COMING SOON - REAL SCRIPT #########
+    while(input$rec_btn==T){ ### WHILE RECORDING
+      # reticulate::source_python(paste0("C:/Users/royde/Desktop/explore_connect.py")) ### CONNECT TO DEVICE AND
+      v %<-% { ### EVALUATE PARALLEL
+        .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
+        library(reticulate) ### LOAD EM
+        source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py")) ### CREATE LSL STREAM  
+        tmp=c()
+        for(i in 1:60){ ### FOR EACH 5 seconds GRAB DATA
+          tmp=c(tmp,py$explore_df())
+        }
+        #tmp  ### REORIENT DATA
+        #tmp  ### GIVE IT BACK
+      }
+      ### ALL 5 SECONDS GRAB DATA AND THROW ON GRAPH UNTIL BROKEN
+      ### POSSIBLY FIX BY EXG$hold  ??
+    }
+    
+# init.channels<<-colnames(tmp)
+    ExG$ts=as.xts(data.frame(tmp),
+                seq(ExG$posix,
+                    by=1/ExG$srate, length=nrow(data.frame(tmp))))
+    ExG$srate=as.numeric(input$srate)
+    ExG$posix=as.POSIXct(paste(input$rec_date,input$rec_time))
+      # get column names
+      graph_data$nodes=update_nodes(base.nodes,tmp)
+      biosigs=subset(graph_data$nodes,group=="biological")
+      physigs=subset(graph_data$nodes,group=="physical")
+      digsigs=subset(graph_data$nodes,group=="digital")
+      #
+
+      graph_data$edges=setNames(data.frame(matrix(ncol = 3, nrow = 0)), c("from", "to","id"))
+      ExG$freq=ExG$ts
+      colnames(ExG$freq)=paste0("Filtered",colnames(ExG$ts))
+      ExG$orig.chan=downsample(ExG$freq,60*15)
+      ExG$orig.ssa=downsample(ExG$freq,60*15)
+      ExG$orig.disp=downsample(ExG$freq,60*15)
+      ExG$disp=downsample(ExG$freq,60*15)
+      ExG$newfile=T
+      #
+      # ExG$orig.disp=tmp
+      # ## reset UI elements below
+      # ExG$sight="bird"
+       a=first(index(ExG$orig.disp))
+       b=last(index(ExG$orig.disp))
+      # tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
+       ExG$resol=c(a,b)
+      # ExG$disp=tmp
+      # ExG$newfile=T
+    ExG$stages=data.frame("Sleep State (A, W, S1, S2, S3, REM)"="W",
+                        "Time (xx:xx or xx:xx:xx)"=first(seq(ExG$posix,by=1/ExG$srate,length=nrow(ExG$ts))),
+                        stringsAsFactors = F)
+    graph_data$EEG=findexg(graph_data$nodes,graph_data$edges,1)
+    graph_data$ECG=findexg(graph_data$nodes,graph_data$edges,2)
+    graph_data$EOG=findexg(graph_data$nodes,graph_data$edges,3)
+    graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
+
+# w %<-% {
+#   .libPaths("C:/Users/royde/Documents/R/win-library/4.0")
+#   library(reticulate)
+#   source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py"))
+#   b=c()
+#   for(i in 1:60){
+#     b=c(b,py$explore_df())
+#   }
+#   b
+# }
+# source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py"))
+# liveish_data <- reactive({
+#   invalidateLater(100)
+#   b=c()
+#   for(i in 1:60){
+#     b=c(b,py$explore_df())
+#   }
+#   b=b[-1]
+# 
+#   if(length(w)%%(8*3) !=0){
+#     b=c(rep(0,(8*3)-length(b)%%(8*3)),b)
+#   }
+#   b=matrix(b,ncol=8)
+#   b=data.frame(b)
+#   liveish_data=rbind(liveish_data,b)
+#   Disp$disp=liveish_data
+# })
+
+# w %<-% {
+#   .libPaths("C:/Users/royde/Documents/R/win-library/4.0")
+#   library(reticulate)
+#   source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py"))
+#   b=c()
+#   for(i in 1:60){
+#     b=c(b,py$explore_df())
+#   }
+#   b
+# }
+# w=w[-1]
+# 
+# if(length(w)%%(8*3) !=0){
+#   w=c(rep(0,(8*3)-length(w)%%(8*3)),w)
+# }
+# w=matrix(w,ncol=8)
+# 
+# init.ExG=data.frame(Ch1=w[,1],
+#                     Ch2=w[,2],
+#                     Ch3=w[,3],
+#                     Ch4=w[,4],
+#                     Ch5=w[,5],
+#                     Ch6=w[,6],
+#                     Ch7=w[,7],
+#                     Ch8=w[,8])
+## 100 datapoints per second
+
+
+  })
 }
 
 ```
