@@ -172,3 +172,40 @@ def qrs_detect(unfiltered_ecg,fs):
   r_peaks = detectors.pan_tompkins_detector(unfiltered_ecg)
   return(r_peaks)
   
+def explore_df():
+  from pylsl import StreamInlet, resolve_stream
+  import pandas as pd
+  import numpy as np
+
+  # first resolve an EEG stream on the lab network
+  streams = resolve_stream('type', 'ExG')
+
+  # create a new inlet to read from the stream
+  inlet = StreamInlet(streams[0])
+  sample, timestamp = inlet.pull_sample()
+  stamp=np.array(timestamp)
+  exg=np.array(sample)
+  sample, timestamp = inlet.pull_sample()
+  stamp=np.array(timestamp)
+  stamp=np.append(timestamp,stamp)
+  dfe=np.array(sample)
+  exg=np.append([exg],[dfe],axis=0)
+  i=1
+  while i<250:
+    # get a new sample (you can also omit the timestamp part if you're not
+    # interested in it)
+    sample, timestamp = inlet.pull_sample()
+    dft=np.array(timestamp)
+    stamp=np.append(timestamp,stamp)
+    dfe=np.array(sample)
+    exg=np.append(exg,[dfe],axis=0)
+    i=i+1
+    
+  return(stamp)
+
+def connect_explore():
+  import explorepy
+  explore = explorepy.Explore()
+  explore.connect(device_name="Explore_1432") # Put your device Bluetooth name
+  explore.push2lsl()
+  return()

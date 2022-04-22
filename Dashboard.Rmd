@@ -89,7 +89,8 @@ if(outputoption!="html"){
   }
 }else{
   if(outputoption=="html")
-    mainDir<<-"/srv/shiny-server/Test/"
+    # mainDir<<-"/srv/shiny-server/Test/"
+  mainDir<<-getwd()
     #demoMode=T
     # mainDir<-"/home/sweiss/Mentalab/"
 }
@@ -401,7 +402,15 @@ if(shiny_running()){
       v %<-% { ### EVALUATE PARALLEL
         .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
         library(reticulate) ### LOAD EM
-        source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py")) ### CREATE LSL STREAM  
+        mainDir<<-getwd()
+        source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM  
+        py$connect_explore()
+      }
+      v %<-% { ### EVALUATE PARALLEL
+        .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
+        library(reticulate) ### LOAD EM
+        mainDir<<-getwd()
+        source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM  
         tmp=c()
         for(i in 1:60){ ### FOR EACH 5 seconds GRAB DATA
           tmp=c(tmp,py$explore_df())
