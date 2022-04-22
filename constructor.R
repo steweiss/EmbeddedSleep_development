@@ -157,7 +157,7 @@ if(shiny_running()){
       "Time (xx:xx or xx:xx:xx)"=init.Date,
       stringsAsFactors = F)
     
-    ExG<-reactiveValues(
+    ExG<<-reactiveValues(
       ts=as.xts(init.ExG,seq(init.Date, by=1/250, length=nrow(init.ExG))),
       srate=250,
       channels=c("Empty"),

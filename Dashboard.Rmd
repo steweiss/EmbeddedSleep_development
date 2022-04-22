@@ -58,7 +58,7 @@ loadpackage<-function(x){
   }
 }
 ################################ POSSIBLE UNNESSECARY PACKAGES / CHECK SORT FOR READABILITY ##############################
-loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","future","kableExtra","xts","eegUtils","dlm","forecast","signal",
+loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","future","kableExtra","xts","eegUtils","dlm","forecast","signal","promises",
               "rmarkdown","plotly","visNetwork","Rssa","RHRV","data.table","DT","shinyTime","shinyWidgets","dygraphs","ggplotify","cowplot","tidyr"))
 
 demoMode<<-F ######################## SHOULD BE DELETED 
@@ -414,7 +414,7 @@ if(shiny_running()){
         mainDir<<-getwd()
         source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM  
         tmp=c()
-        for(i in 1:30){ ### FOR EACH 5 seconds GRAB DATA
+        for(i in 1:30){ ### Grab 30 secs (1 Window Length) of data
           tmp=rbind(tmp,data.frame(py$explore_df()))
         }
       tmp=tmp/(1000*1000)
@@ -458,7 +458,8 @@ if(shiny_running()){
     graph_data$ECG=findexg(graph_data$nodes,graph_data$edges,2)
     graph_data$EOG=findexg(graph_data$nodes,graph_data$edges,3)
     graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
-ExG$recording=T
+    ExG$recording=T
+    print("finished first record")
 # w %<-% {
 #   .libPaths("C:/Users/royde/Documents/R/win-library/4.0")
 #   library(reticulate)
@@ -518,11 +519,15 @@ ExG$recording=T
     }
   })
   
-  observeEvent(ExG$recording,{
-    invalidateLater(30000)
+
+  
+  
+  observe({
+    invalidateLater(90000)
+    print("updating")
     if(ExG$recording==T){
       
-    v %<-% { ### EVALUATE PARALLEL
+       promise<-future_promise({ ### EVALUATE PARALLEL
         .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
         library(reticulate) ### LOAD EM
         mainDir<<-getwd()
@@ -534,12 +539,26 @@ ExG$recording=T
         tmp
         #tmp  ### REORIENT DATA
         #tmp  ### GIVE IT BACK
-      }
-      tmp=v
-
-    ExG$ts=rbind(ExG$ts,as.xts(data.frame(tmp),
+       } )
+  print("started promise")
+  then(promise,onFulfilled = 
+  function(value) {
+    ExG$ts<<-rbind(ExG$ts,as.xts(data.frame(value),
                 seq(last(index(ExG$ts))+1,
-                    by=1/ExG$srate, length=nrow(data.frame(tmp)))))
+                    by=1/ExG$srate, length=nrow(data.frame(tmp))))/(1000*1000))
+  })
+    print("evaluated promise")  
+  
+    # then(v,onFulfilled=function(v){ 
+    #           rbind(ExG$ts,
+    #                        as.xts(data.frame(v),
+    #             seq(last(index(ExG$ts))+1,
+    #                 by=1/ExG$srate, length=nrow(data.frame(tmp))))/(1000*1000))
+    #     }
+        # ) 
+      
+      
+
     }
   })
 }
