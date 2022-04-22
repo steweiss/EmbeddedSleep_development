@@ -246,8 +246,10 @@ if(shiny_running()){
           multiple = TRUE
           )
         }),
-        switchInput(inputId = "sep_chan",
-                    label = "parallel lines", value=F),flex=c(1,2,2,2,1)),
+      renderPrint(ExG$recording)
+        # switchInput(inputId = "sep_chan",
+        #             label = "parallel lines", value=F)
+      ,flex=c(1,2,2,2,1)),
     ### INPUTS FINISHED -> NEXT COLUMN: GRPAHIC
     dygraphOutput("dygraph")
     ,flex = c(1,10))
@@ -385,43 +387,39 @@ observeEvent(input$upload,{
 if(shiny_running()){
   observeEvent(input$rec_btn,{
      
-    plan(multisession)
     ############ MOCKUP SCRIPT ##################
-    v %<-% {
-      tmp=lorenz(sigma = 10, beta = 8/3, rho = 28,
-                start = c(5, 5, 5), time = seq(0, 10000, by = 0.01),
-                do.plot = F)
-      tmp
-      }
-    Sys.sleep(5)
-    tmp=data.frame(Fp1=v[["x"]],F1=v[["y"]],C3=v[["z"]])
+    # v %<-% {
+    #   tmp=lorenz(sigma = 10, beta = 8/3, rho = 28,
+    #             start = c(5, 5, 5), time = seq(0, 10000, by = 0.01),
+    #             do.plot = F)
+    #   tmp
+    #   }
+    # Sys.sleep(5)
+    # tmp=data.frame(Fp1=v[["x"]],F1=v[["y"]],C3=v[["z"]])
     
     ########### COMING SOON - REAL SCRIPT #########
-    while(input$rec_btn==T){ ### WHILE RECORDING
+    if(input$rec_btn==T){ ### WHILE RECORDING
+      plan(multisession)
       # reticulate::source_python(paste0("C:/Users/royde/Desktop/explore_connect.py")) ### CONNECT TO DEVICE AND
-      v %<-% { ### EVALUATE PARALLEL
+      w %<-% { ### EVALUATE PARALLEL
         .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
         library(reticulate) ### LOAD EM
         mainDir<<-getwd()
         source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM  
         py$connect_explore()
       }
-      v %<-% { ### EVALUATE PARALLEL
+       ### EVALUATE PARALLEL
         .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
         library(reticulate) ### LOAD EM
         mainDir<<-getwd()
         source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM  
         tmp=c()
-        for(i in 1:60){ ### FOR EACH 5 seconds GRAB DATA
-          tmp=c(tmp,py$explore_df())
+        for(i in 1:30){ ### FOR EACH 5 seconds GRAB DATA
+          tmp=rbind(tmp,data.frame(py$explore_df()))
         }
-        #tmp  ### REORIENT DATA
-        #tmp  ### GIVE IT BACK
-      }
+      tmp=tmp/(1000*1000)
       ### ALL 5 SECONDS GRAB DATA AND THROW ON GRAPH UNTIL BROKEN
       ### POSSIBLY FIX BY EXG$hold  ??
-    }
-    
 # init.channels<<-colnames(tmp)
     ExG$ts=as.xts(data.frame(tmp),
                 seq(ExG$posix,
@@ -460,7 +458,7 @@ if(shiny_running()){
     graph_data$ECG=findexg(graph_data$nodes,graph_data$edges,2)
     graph_data$EOG=findexg(graph_data$nodes,graph_data$edges,3)
     graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
-
+ExG$recording=T
 # w %<-% {
 #   .libPaths("C:/Users/royde/Documents/R/win-library/4.0")
 #   library(reticulate)
@@ -515,8 +513,34 @@ if(shiny_running()){
 #                     Ch7=w[,7],
 #                     Ch8=w[,8])
 ## 100 datapoints per second
+    }else{
+      ExG$recording=F
+    }
+  })
+  
+  observeEvent(ExG$recording,{
+    invalidateLater(30000)
+    if(ExG$recording==T){
+      
+    v %<-% { ### EVALUATE PARALLEL
+        .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
+        library(reticulate) ### LOAD EM
+        mainDir<<-getwd()
+        source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM
+        tmp=c()
+        for(i in 1:30){ ### FOR EACH 5 seconds GRAB DATA
+          tmp=rbind(tmp,data.frame(py$explore_df()))
+        }
+        tmp
+        #tmp  ### REORIENT DATA
+        #tmp  ### GIVE IT BACK
+      }
+      tmp=v
 
-
+    ExG$ts=rbind(ExG$ts,as.xts(data.frame(tmp),
+                seq(last(index(ExG$ts))+1,
+                    by=1/ExG$srate, length=nrow(data.frame(tmp)))))
+    }
   })
 }
 

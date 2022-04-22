@@ -201,7 +201,7 @@ def explore_df():
     exg=np.append(exg,[dfe],axis=0)
     i=i+1
     
-  return(stamp)
+  return(exg)
 
 def connect_explore():
   import explorepy

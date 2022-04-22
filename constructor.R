@@ -108,7 +108,7 @@ if(demoMode==F){
 if(shiny_running()){
   
   ## Reactive Environement for graph network
-  graph_data <- reactiveValues(
+  graph_data <<- reactiveValues(
     nodes = init.nodes,
     edges=init.edges,
     EEG=init.eeg.fits,
@@ -119,7 +119,7 @@ if(shiny_running()){
   
   ## Main Reactive Object
   if(demoMode==F){
-    ExG<-reactiveValues(
+    ExG<<-reactiveValues(
       ts=as.xts(init.ExG,seq(as.POSIXct("2020-03-03 00:40:00"), by=1/init.srate, length=nrow(init.ExG))),
       srate=init.srate,
       channels=init.channels,
@@ -143,7 +143,8 @@ if(shiny_running()){
       df_res2=data.frame(),
       pan=0,
       hold=1,
-      a=0
+      a=0,
+      recording=F
     )
   }else{
     init.ExG=as.data.frame(rep(0,250*60*60*8))
