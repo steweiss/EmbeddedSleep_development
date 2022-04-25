@@ -1,0 +1,70 @@
+
+```{r}
+
+if(shiny_running()){
+fillRow(DTOutput("stages"),
+renderTable({
+  res=round(unlist(lapply(ExG$freq,function(x)nrow(x)/(ExG$srate*60)))[1],0)
+res=c("Total",res)
+
+df=data.frame("Stage"=ExG$stages[,1],"Duration"=c(as.numeric(difftime(c(ExG$stages[-1,2],last(index(ExG$freq))),ExG$stages[,2],units = "mins"))))
+
+res2=ddply(df,"Stage",function(x)sum(x[,2]))
+res2$Stage=as.character(res2$Stage)
+res2$V1=round(res2$V1,0)
+df_res=rbind(setNames(res,colnames(res2)),res2)
+
+res3=t(py$glob_bp(array(coredata(ExG$freq[,paste0("Filtered",input$eeg_ana)])),ExG$srate))
+
+res3=round(res3[1:6,]*100,1)
+df_res=rbind(df_res,setNames(data.frame(names(res3),as.matrix(res3)),colnames(df_res)))
+res4=nrow(ExG$spindles)
+df_res=rbind(df_res,setNames(data.frame("Sleep Spindles",res4),colnames(df_res)))
+
+res5=c("Explained Variance SSA",round(sum(contributions(ExG$ssa)*100),1))
+
+
+
+ExG$summ=rbind(df_res,setNames(res5,colnames(df_res)))
+ExG$summ
+}))
+}else{
+
+kable(EXG$summ)
+
+}
+
+
+
+```
+
+
+```{r}
+if(shiny_running()){
+  downloadButtonRmd("downloadReport",label="Download PDF")
+}
+
+# renderPrint(print(getwd()))
+
+if(shiny_running() ){
+output$downloadReport <- downloadHandler(
+  filename = function() {
+    paste('MentaLab', sep = '.', PDF = 'pdf')
+  },
+  content = function(file){
+    file.copy(paste0(mainDir,"/Dashboard.Rmd"),
+              paste0(mainDir,"/Report.Rmd"), overwrite = TRUE)
+    # nok=isolate(ExG$stages)
+    EXG<<-list()
+    EXG$stages=ExG$stages
+    EXG$df_res=ExG$df_res
+    EXG$spindles=ExG$spindles
+    EXG$hrv=ExG$hrv
+    EXG$summ=ExG$summ
+    out=rmarkdown::render(paste0(mainDir,"/Report.Rmd"), pdf_document(),runtime="static")
+    file.rename(out, file)
+  })}
+
+```
+
+

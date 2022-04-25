@@ -1,0 +1,394 @@
+
+```{r, staging table and SSA plot}
+if(shiny_running()){
+  output$stages<-renderDT({
+    DT::datatable(
+      data.frame(
+        cbind(
+          ExG$stages[,1],
+          strftime(ExG$stages[,2],format="%H:%M:%S")),
+        stringsAsFactors = F),
+      editable=F,options = list(dom = 't'),
+      colnames = c("Stage","Time"))
+    })
+}
+```
+
+```{r}
+### OBSERVER FOR EDITING
+if(shiny_running()){
+  #Editable stages
+  observeEvent(input[["stages_cell_edit"]],{
+    tmp=input[["stages_cell_edit"]]
+    if(tmp$col==2){
+      if(length(strsplit(tmp$value,":")[[1]])>=2){
+        if(!to_day(ExG$posix,tmp$value)){
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,tmp$value))
+        }else{
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),tmp$value))
+        }
+      }
+      if(length(strsplit(tmp$value,":")[[1]])==2){
+        if(!to_day(ExG$posix,tmp$value)){
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,paste0(tmp$value,":00")))
+        }else{
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),paste0(tmp$value,":00")))
+        }
+      }
+    }
+    else{
+    ExG$stages[tmp$row,tmp$col]<-tmp$value
+    }
+    ExG$stages=ExG$stages[!(ExG$stages[,1] %in% c("")),]
+  })
+}
+```
+
+
+```{r}
+if(shiny_running()){
+output$telco<-renderPlot({
+if(!is.null(input$ssa_channel) & ExG$hold==0){
+  ###################GRAPHIC FOR ONE STAGE WITH ALL COMPONENTS
+#   if(length(input$stages_rows_selected)!=1){
+#     if(input$time_real==F){
+#   p= ggplot()+geom_line(data=ExG$df_res,aes(x=ind,y=Value))+
+#     geom_line(data=ExG$df_res,aes(x=ind,y=Value,group=Comp,color=Comp))+
+#     theme_classic()+facet_grid(rows = vars(Row),cols=vars(Column))+theme(legend.position = "none")+
+#     scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+#   }else{
+#   p= ggplot()+geom_line(data=ExG$df_res2,aes(x=ind,y=Value))+
+#     geom_line(data=ExG$df_res2,aes(x=ind,y=Value,group=Real,color=Real))+
+#     theme_classic()+facet_grid(rows = vars(Row),cols=vars(Column))+theme(legend.position = "none")+
+#     scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+#
+#     }
+#   p
+# }else{
+#####################GRAPHIC FOR MANY STAGE FOR EACH CLUSTER
+
+  if(input$time_real==F){
+ # p=ggplot()+geom_line(
+ #        data=ExG$df_res[ExG$df_res$Column==input$stages_rows_selected,],
+ #        aes(x=ind,y=Value,group=Comp,color=Comp))+
+ #        theme_classic()+facet_wrap(c( vars(Comp),vars(Row)))+
+ #   geom_rect(data = ExG$df_res[ExG$df_res$Column==input$stages_rows_selected & ExG$df_res$Comp %in% ExG$pan[2],],
+ #                          fill = NA, colour = "red", xmin = -Inf,xmax = Inf,
+ #            ymin = -Inf,ymax = Inf)+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+ #      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+
+ p=ggplot()+geom_line(
+        data=ExG$df_res,
+        aes(x=ind,y=Value,group=Comp,color=Comp))+
+        theme_classic()+facet_wrap(c( vars(Comp),vars(Row)))+
+   geom_rect(data = ExG$df_res[ExG$df_res$Comp %in% ExG$pan[2],],
+                          fill = NA, colour = "red", xmin = -Inf,xmax = Inf,
+            ymin = -Inf,ymax = Inf)+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+
+    }else{
+ # p=ggplot()+geom_line(
+ #        data=ExG$df_res2[ExG$df_res2$Column==input$stages_rows_selected,],
+ #        aes(x=ind,y=Value,group=Real,color=Real))+
+ #        theme_classic()+facet_wrap(c(vars(Real),vars(Row)))+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+ #      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+ p=ggplot()+geom_line(
+        data=ExG$df_res2,
+        aes(x=ind,y=Value,group=Real,color=Real))+
+        theme_classic()+facet_wrap(c(vars(Real),vars(Row)))+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+
+    }
+    p
+# }
+}
+})
+
+}else{
+
+  ggplot()+geom_line(
+        data=EXG$df_res,
+        aes(x=ind,y=Value,group=Comp,color=Comp))+
+        theme_classic()+facet_wrap(c( vars(Comp),vars(Row)))+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+}
+
+if(shiny_running()){
+    fillRow(
+    #################STAGING TABLE FOR SELECTION
+    fillCol(
+      renderUI({
+        ssas=graph_data$EEG
+        pickerInput(
+          inputId = "ssa_channel",
+          choices =ssas,
+          options = list(title = "Channels",`actions-box` = TRUE,size = 10),
+          multiple = T
+        )
+      }),
+      # DTOutput("stages"),flex=c(1,5)),
+    # fillCol(
+       switchInput(inputId = "time_real", label = "timed Realization", value=F),
+      # renderUI({
+      # if(!is.null(input$stages_rows_selected)){
+      # if(input$stages_rows_selected==1){
+      # ############################### UI ELEMENTS FOR SSA TO EACH STAGE OR
+      knobInput(
+        inputId = "neigs",
+        label = "Number of Components",
+        value = 20,
+        max = 50,
+        min=2,
+        displayPrevious = TRUE,
+        lineCap = "round",
+        fgColor = "#428BCA",
+        inputColor = "#428BCA",
+        immediate=F
+      ),
+      #     }else{
+      #
+      # }
+      # }
+      # }),
+      knobInput(
+        inputId = "nclust",
+        label = "Number of Clusters",
+        value = 3,
+        max = 20,
+        min=1,
+        displayPrevious = TRUE,
+        lineCap = "round",
+        fgColor = "#428BCA",
+        inputColor = "#428BCA",
+        immediate=F
+      )
+
+      ,flex=c(1,1,3,3)),
+    ##########################GRAPHIC TO BE RENDERED
+    plotOutput("telco",click = "plot_click"),flex=c(1,8))}
+
+
+```
+
+
+```{r, singular spectrum analysis}
+# observeEvent(input$stages_rows_selected,
+#
+#              )
+
+# observeEvent(input$nclust,{
+#   for()
+#
+#   #vis_pipe$nodes=update_nodes_cluster(vis_pipe$nodes,ExG$gssa)
+#   #vis_pipe$edges=update_edges_cluster(vis_pipe$nodes,vis_pipe$edges,ExG$gssa)
+#   ExG$rssa=recons(ExG$ssa,ExG$gssa[[i]])
+#   # vis_pipe$edges=update_edges_cluster(vis_pipe$nodes,vis_pipe$edges,ExG$gssa)
+#
+# })
+
+## NO GOOD GOGETTER: APPLY SSA WHEN YOU KNOW ON WHAT AND SPECIFIY YOUR RANK!
+## NO GOOD GOGETTER: APPLY SSA WHEN YOU KNOW ON WHAT AND SPECIFIY YOUR RANK!
+if(shiny_running()){
+observeEvent(c(input$ssa_channel,input$stages_rows_selected,input$neigs),{
+  ExG$hold=1
+#  if(!is.null(input$ssa_channel) & length(input$stages_rows_selected)==1){
+  if(!is.null(input$ssa_channel)){
+  ### 60 Minutes maximum
+  # if(ExG$stages[input$stages_rows_selected+1,2]-ExG$stages[input$stages_rows_selected,2]<60){
+    # tmp=downsample(window(ExG$freq[,paste0("Filtered",input$ssa_channel)],
+    #                       start=ExG$stages[input$stages_rows_selected,2],
+    #                       end=ExG$stages[input$stages_rows_selected+1,2]),25)
+    tmp=downsample(ExG$freq[,paste0("Filtered",input$ssa_channel)],25)
+
+    ExG$ssa=ssa.svd(tmp,30*10,1,input$neigs)
+
+    ExG$gssa=grouping.ssa(ExG$ssa,g=1:input$neigs,nc=min(input$nclust,input$neigs))
+    ExG$rssa=recons(ExG$ssa,ExG$gssa)
+    #ExG$df_res=ExG$df_res[ExG$df_res$Column!=input$stages_rows_selected,]
+    ExG$df_res=data.frame()
+    for(i in 1:length(ExG$gssa)){
+      df=data.frame("ind"=seq(1,length(ExG$ssa$U[,1])))
+      df[,paste0("Comp",ExG$gssa[[i]])]=ExG$ssa$U[,ExG$gssa[[i]]]
+      df=gather(df,key="Comp",value = "Value",-ind)
+      df=df[df$Comp %in% paste0("Comp",unlist(ExG$gssa[[i]])),]
+      df$Comp=factor(df$Comp,levels = paste0("Comp",unlist(ExG$gssa[[i]])))
+      df$Row=i
+      #df$Column=input$stages_rows_selected
+      ExG$df_res=rbind(ExG$df_res,df)
+      ### THIS IS THE DATAFROM FOR THE BIGPLOTS ALSO!
+      df=data.frame("ind"=seq(1,length(ExG$ssa$V[,1])))
+      df[,paste0("Real",ExG$gssa[[i]])]=ExG$ssa$V[,ExG$gssa[[i]]]
+      df=gather(df,key="Real",value = "Value",-ind)
+      df=df[df$Real %in% paste0("Real",unlist(ExG$gssa[[i]])),]
+      df$Real=factor(df$Real,levels = paste0("Real",unlist(ExG$gssa[[i]])))
+      df$Row=i
+#      df$Column=input$stages_rows_selected
+      df$Column=input$stages_rows_selected
+      ExG$df_res2=rbind(ExG$df_res2,df)
+    }
+
+
+
+  }
+  ExG$hold=0
+})
+
+observeEvent(input$plot_click,{
+  ExG$hold=1
+  if(!is.null(input$ssa_channel) & !is.null(ExG$ssa)){
+  #get the energy pattern
+    if(ExG$pan==0){
+      ExG$pan=c(input$plot_click$panelvar1,input$plot_click$panelvar2)
+    }else{
+      ##### Delete Component from Group
+      ExG$gssa[[as.numeric(ExG$pan[1])]]=
+        ExG$gssa[[as.numeric(ExG$pan[1])]][ExG$gssa[[as.numeric(ExG$pan[1])]]
+                                           !=strsplit(ExG$pan[2],"Comp")[[1]][2]]
+      ##### Add Component to Cluster
+      ExG$gssa[[as.numeric(input$plot_click$panelvar1)]]=
+        sort(as.numeric(append(
+          ExG$gssa[[as.numeric(input$plot_click$panelvar1)]],strsplit(ExG$pan[2],"Comp")[[1]][2])))
+    hlist=list()
+    for(i in 1:length(ExG$gssa)){
+      hlist[[i]]=ExG$gssa[[i]]
+    }
+    ExG$gssa=hlist
+    ExG$rssa=recons(ExG$ssa,ExG$gssa)
+    #ExG$df_res=ExG$df_res[ExG$df_res$Column!=input$stages_rows_selected,]
+    ExG$df_res=data.frame()
+    for(i in 1:length(ExG$gssa)){
+      df=data.frame("ind"=seq(1,length(ExG$ssa$U[,1])))
+      df[,paste0("Comp",ExG$gssa[[i]])]=ExG$ssa$U[,ExG$gssa[[i]]]
+      df=gather(df,key="Comp",value = "Value",-ind)
+      df=df[df$Comp %in% paste0("Comp",unlist(ExG$gssa[[i]])),]
+      df$Comp=factor(df$Comp,levels = paste0("Comp",unlist(ExG$gssa[[i]])))
+      df$Row=i
+      # df$Column=input$stages_rows_selected
+      ### THIS IS THE DATAFROM FOR THE BIGPLOTS ALSO!
+      ExG$df_res=rbind(ExG$df_res,df)
+    }
+
+      ExG$pan=0
+    }
+  }
+  ExG$hold=0
+})
+
+observeEvent(input$nclust,{
+  ExG$hold=1
+  if(!is.null(input$ssa_channel) & !is.null(ExG$ssa)){
+  ### 60 Minutes maximum
+    ExG$gssa=grouping.ssa(ExG$ssa,g=1:input$neigs,nc=min(input$nclust,input$neigs))
+    ExG$rssa=recons(ExG$ssa,ExG$gssa)
+#    ExG$df_res=ExG$df_res[ExG$df_res$Column!=input$stages_rows_selected,]
+    ExG$df_res=data.frame()
+    for(i in 1:length(ExG$gssa)){
+      df=data.frame("ind"=seq(1,length(ExG$ssa$U[,1])))
+      df[,paste0("Comp",ExG$gssa[[i]])]=ExG$ssa$U[,ExG$gssa[[i]]]
+      df=gather(df,key="Comp",value = "Value",-ind)
+      df=df[df$Comp %in% paste0("Comp",unlist(ExG$gssa[[i]])),]
+      df$Comp=factor(df$Comp,levels = paste0("Comp",unlist(ExG$gssa[[i]])))
+      df$Row=i
+      # df$Column=input$stages_rows_selected
+      ### THIS IS THE DATAFROM FOR THE BIGPLOTS ALSO!
+      ExG$df_res=rbind(ExG$df_res,df)
+    }
+    ExG$hold=0
+    }
+})
+}
+
+
+######### THE OLD SSA WORKFLOW
+# observeEvent(input$neigs,{
+#   if(!is.null(input$ssa_channel) &!is.null(input$ssa_stages)){
+#     if(input$ssa_stages!="All Stages"){
+#   sels=strsplit(input$ssa_stages," ")[[1]][3]
+#   # ExG$stages[,2] %in% sels
+#
+#   if(!to_day(ExG$posix,sels)){
+#     i=which(ExG$stages[,2]%in%as.POSIXct(paste(as.Date(ExG$posix)+1,sels)))
+#   }else{
+#     i=which(ExG$stages[,2]%in%as.POSIXct(paste(as.Date(ExG$posix),sels)))
+#   }
+#   if(ExG$stages[i+1,2]-ExG$stages[i,2]<60){
+#   tmp=downsample(window(ExG$freq[,paste0("Filtered",input$ssa_channel)],start=ExG$stages[i,2],end=ExG$stages[i+1,2]),25)
+#   ExG$ssa=ssa.svd(tmp,30*10,1,input$neigs)
+#   #vis_pipe$nodes=update_nodes_components(vis_pipe$nodes,ExG$ssa)
+#   }
+#   }else{
+#     tmp=downsample(ExG$freq[,paste0("Filtered",input$ssa_channel)],250)
+#     arte=min(30,input$neigs)
+#     ExG$ssa=ssa.svd(tmp,30,1,arte)
+#    # vis_pipe$nodes=update_nodes_components(vis_pipe$nodes,ExG$ssa)
+#   }
+#   }
+#   ExG$gssa=grouping.ssa(ExG$ssa,g=1:input$neigs,nc=min(input$neigs,input$nclust))
+#   #vis_pipe$nodes=update_nodes_cluster(vis_pipe$nodes,ExG$gssa)
+#   #vis_pipe$edges=update_edges_cluster(vis_pipe$nodes,vis_pipe$edges,ExG$gssa)
+#   ExG$rssa=recons(ExG$ssa,ExG$gssa)
+# })
+
+
+
+```
+
+
+```{r}
+# if(shiny_running()){
+# #Editable stages
+# observeEvent(input[["stages_cell_edit"]],{
+#   tmp=input[["stages_cell_edit"]]
+#   if(tmp$col==2){
+#     if(length(strsplit(tmp$value,":")[[1]])>=2){
+#       if(!to_day(ExG$posix,tmp$value)){
+#         ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,tmp$value))
+#       }else{ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),tmp$value))}
+#     }
+#     if(length(strsplit(tmp$value,":")[[1]])==2){
+#       if(!to_day(ExG$posix,tmp$value)){
+#         ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,paste0(tmp$value,":00")))
+#       }else{ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),paste0(tmp$value,":00")))}
+#     }
+#   }else{ExG$stages[tmp$row,tmp$col]<-tmp$value}
+#   ExG$stages=ExG$stages[!(ExG$stages[,1] %in% c("")),]
+# })
+# }
+```
+
+
+
+```{r}
+if(shiny_running()){
+  observeEvent(input$ana_button,{
+  if(!is.null(input$ecg_ana)){
+    res=py$qrs_detect(coredata(ExG$ts)[,input$ecg_ana],ExG$srate)
+    ExG$qrs=data.frame(rep("QRS",length(res)),first(index(ExG$ts))+res)
+    ExG$hrv=hrv_analysis(res,ExG$srate,mainDir)
+  }
+  if(!is.null(input$eeg_ana)){
+    tmp_bp=rel_bp(coredata(ExG$freq)[,paste0("Filtered",input$eeg_ana)])
+    ExG$bandpower=as.xts((tmp_bp[,1:5]/tmp_bp[,6])*100,seq(ExG$posix, by=input$L, length=nrow(tmp_bp)))
+  ExG$spindles=NULL
+  res2=data.frame()
+  for(i in 1:(nrow(ExG$stages)-1)){
+  ## Limit stages
+    if((ExG$stages[i,1]%in% c("S1","S2","S3"))){
+      ## For last entry take time to end, else take time to next stage
+      if(i!=(nrow(ExG$stages)-1)){tmp=window(ExG$freq,start=ExG$stages[i,2],end=ExG$stages[i+1,2])
+      }else{tmp=window(ExG$freq,start=ExG$stages[i,2],end=last(index(ExG$freq)))}
+      ## Collect Sleep Spindles by Yasa
+      res<-data.frame(
+        py$sleep_spindles(tmp[,paste0("Filtered",input$eeg_ana)],ExG$srate),stringsAsFactors = F
+        )[,c("Start","Duration","Oscillations")]
+
+      res2=rbind(res2,data.frame(Start=ExG$stages[i,2]+res$Start,stringsAsFactors = F))
+    }
+  }
+  ExG$spindles=setNames(
+    data.frame(rep("Spindle",nrow(res2)),res2$Start,stringsAsFactors = F),c("Event","Time"))
+  }
+})
+}
+
+```

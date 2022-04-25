@@ -1,0 +1,83 @@
+
+```{r}
+############################### HRV ANALYSIS ###################################
+############################### SHOWS ERROR MESSAGE BEFORE QRS DETECTION ###################################
+
+if(shiny_running()){
+  fillCol(
+    renderTable({
+      res=as.data.frame(ExG$hrv[[2]]["TimeAnalysis"])
+      colnames(res)=unlist(lapply(strsplit(colnames(res),"TimeAnalysis."),function(x)x[[2]]))
+      round(res,0)
+      }),
+    fillRow(
+      renderPlot({PlotSinglePowerBand(ExG$hrv[[1]], 1, "LF/HF",doPlot=T,
+                                      main="heart related stress adaption",                 
+                                      eplim=c(min(ExG$hrv[[1]]$FreqAnalysis[[1]]$LFHF),
+                                              max(ExG$hrv[[1]]$FreqAnalysis[[1]]$LFHF)))
+        }),
+      renderPlot({
+        PoincarePlot(ExG$hrv[[3]],indexNonLinearAnalysis=1,timeLag=1, doPlot=T)
+        })
+      ),flex=c(1,5)
+  )
+}else{
+  ############################### FOR DISPLAY IN REPORT ###################################
+  ############################### CURRENTLY NOT WORKING ###################################
+  kable(as.data.frame(EXG$hrv[[2]]["TimeAnalysis"]))
+  PlotSinglePowerBand(EXG$hrv[[1]], 1, "LF/HF",doPlot=T,main="heart related stress adaption",                     eplim=c(min(EXG$hrv[[1]]$FreqAnalysis[[1]]$LFHF),max(EXG$hrv[[1]]$FreqAnalysis[[1]]$LFHF)))
+  PoincarePlot(EXG$hrv[[3]],indexNonLinearAnalysis=1,timeLag=1, doPlot=T)
+}
+
+```
+
+***
+
+```{r}
+if(shiny_running()){
+  sliderInput("L", label = "Window Length", min = 10,max = 50, value = 30,step=1)
+}
+
+if(shiny_running()){
+  # dropdown(
+  # tags$h3("List of Input"),
+  renderUI({
+  eeg_choicings=c(graph_data$EEG)
+
+  pickerInput(
+    inputId = "eeg_ana",
+    label = "Select Channel for Sleep Spindles & Baandpower",
+    choices =c(eeg_choicings),
+    options = list(
+    `actions-box` = TRUE,
+    size = 10
+  ),
+  multiple = F
+  )
+  })
+}
+
+
+if(shiny_running()){
+  # dropdown(
+  # tags$h3("List of Input"),
+  renderUI({
+    ecg_choicings=c(graph_data$ECG)
+
+  pickerInput(
+    inputId = "ecg_ana",
+    label = "Select Channel for QRS Detection",
+    choices =ecg_choicings,
+    options = list(
+    `actions-box` = TRUE,
+    size = 10
+  ),
+  multiple = F
+  )
+  })
+}
+if(shiny_running()){
+  actionButton("ana_button", label = "Analyze")
+}
+
+```

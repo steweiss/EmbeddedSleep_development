@@ -1,0 +1,395 @@
+
+```{r,visnetwork}
+
+if(shiny_running()){
+  ## Graph Network - fontawesome not working, some manipulations should be disaabled, clusters not displayed
+  output$visnet<-renderVisNetwork({
+    visNetwork(graph_data$nodes,graph_data$edges) %>%
+      visOptions(nodesIdSelection = list(enabled=T,values = c(1:4)),manipulation = list(
+    enabled= T,
+    initiallyActive= T,
+    addNode= F,
+    addEdge= T,
+    editEdge= F,
+    deleteNode= F,
+    deleteEdge= T
+    )) %>%visInteraction(multiselect=T,
+                         dragNodes = T,
+                         dragView = T,
+                         zoomView = T) %>%
+      visGroups(groupname = "digital", shape = "icon",
+            icon = list(code = "f31b", size = 75,face = 'Ionicons',color="black")) %>%
+      visGroups(groupname = "physical", shape = "icon",
+                icon = list(code = "f3a7", size=75,face = 'Ionicons',color="red"))%>%
+      visGroups(groupname = "biological", shape = "icon",
+                icon = list(code = c('f493'), size=75,color="green",face = 'Ionicons'))  %>%
+      visGroups(groupname = "Component", shape = "icon",
+                icon = list(code = "f2e9", size = 25,color="orange",face = 'Ionicons')) %>%
+      visGroups(groupname = "Cluster", shape = "icon",
+                    icon= list(code = "f25c", size = 75,color="blue",face= 'Ionicons')) %>% addIonicons()%>% visEdges(arrows = "to") %>%
+  visHierarchicalLayout( levelSeparation = 200,nodeSpacing=50,treeSpacing=100)
+
+  })
+
+  visNetworkOutput("visnet")
+}
+
+# visEvents(select = "function(nodes) {
+#                 Shiny.onInputChange('current_node_id', nodes.nodes);
+#                 ;}") %>%
+# %>%
+#                  visEvents(select = "function(nodes) {
+#                 Shiny.onInputChange('current_node_id', nodes.nodes);
+#                 ;}")
+
+  # observeEvent(input$current_node_id, {
+  #   visNetworkProxy("visnet") %>%
+  #     visGetNodes()
+  # })
+
+if(shiny_running()){
+## Watch Manipulation of network - also implement renaming columns
+## Some features are implemented but disabled by the graph network
+## No real ?eval expressions just some features (hard) evaluated
+  observeEvent(input[["visnet_graphChange"]],{
+    print("CHANGE APPLIES")
+    # If the user added a node, add it to the data frame of nodes.
+    if(input[["visnet_graphChange"]][["cmd"]] == "addNode") {
+      temp = bind_rows(
+        graph_data$nodes,
+        data.frame(id = input[["visnet_graphChange"]]$id,
+                   label = input[["visnet_graphChange"]]$label,
+                   stringsAsFactors = F)
+      )
+      graph_data$nodes = temp
+    }
+    # If the user added an edge, add it to the data frame of edges.
+    else if(input[["visnet_graphChange"]]$cmd == "addEdge") {
+      tmp = bind_rows(
+        graph_data$edges,
+        data.frame(id=(nrow(graph_data$edges)+1) ,
+                   from =input[["visnet_graphChange"]]$from,
+                   to = input[["visnet_graphChange"]]$to,
+                   stringsAsFactors = F)
+      )
+      ## if eeg changed
+      if(length(findexg(graph_data$nodes,graph_data$edges,1))!=
+         length(findexg(graph_data$nodes,tmp,1))){
+        ## to and from cases
+        if(as.character(input[["visnet_graphChange"]]$to) %in%
+           as.character(subset(graph_data$nodes,group=="physical")$id)){
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label[
+              as.character(subset(graph_data$nodes,group=="physical")$id) %in%
+              as.character(input[["visnet_graphChange"]]$to )])
+            ## convert all data to uV/mV range - now only timeseries and filters but also disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]*(1000*1000)
+            ExG$freq[,paste0("Filtered",chan)]=ExG$freq[,paste0("Filtered",chan)]*(1000*1000)
+          }else{
+            ## convert all data to uV/mV range - now only timeseries and filters, but also disp, etc.
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label[
+              as.character(subset(graph_data$nodes,group=="physical")$id) %in%
+              as.character(input[["visnet_graphChange"]]$from )])
+            ## convert all data to uV/mV range - now only timeseries and filters, but also disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]*(1000*1000)
+            ExG$freq[,paste0("Filtered",chan)]=ExG$freq[,paste0("Filtered",chan)]*(1000*1000)
+             }
+      }
+      if(length(findexg(graph_data$nodes,graph_data$edges,2))!=
+         length(findexg(graph_data$nodes,tmp,2))|
+         length(findexg(graph_data$nodes,graph_data$edges,3))!=
+         length(findexg(graph_data$nodes,tmp,3))|
+         length(findexg(graph_data$nodes,graph_data$edges,4))!=
+         length(findexg(graph_data$nodes,tmp,4))){
+          if(as.character(input[["visnet_graphChange"]]$to) %in%
+             as.character(subset(graph_data$nodes,group=="physical")$id)){
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label[
+              as.character(subset(graph_data$nodes,group=="physical")$id) %in%
+              as.character(input[["visnet_graphChange"]]$to) ])
+            ## convert all data to uV range - now only timeseries, but also filters, disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]*1000
+            ExG$freq[,paste0("Filtered",chan)]=ExG$freq[,paste0("Filtered",chan)]*1000
+          }else{
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label[
+              as.character(subset(graph_data$nodes,group=="physical")$id) %in%
+              as.character(input[["visnet_graphChange"]]$from )])
+            ## convert all data to uV/mV range - now only timeseries and filters, but also disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]*(1000)
+            ExG$freq[,paste0("Filtered",chan)]=ExG$freq[,paste0("Filtered",chan)]*(1000)
+             }
+         }
+
+      graph_data$edges = tmp
+    }
+    # If the user edited a node, update that record.
+    else if(input[["visnet_graphChange"]]$cmd == "editNode") {
+      temp = graph_data$nodes
+      temp$label[as.character(temp$id) == as.character(input[["visnet_graphChange"]]$id)] = as.character(input[["visnet_graphChange"]]$label)
+      graph_data$nodes = temp
+      physigs=as.character(subset(graph_data$nodes,group=="physical")$label)
+      colnames(ExG$ts)=physigs
+      colnames(ExG$freq)=paste0("Filtered",physigs)
+
+    }
+    # If the user edited an edge, update that record.
+    else if(input[["visnet_graphChange"]]$cmd == "editEdge") {
+      temp = graph_data$edges
+      temp$from[temp$id == input[["visnet_graphChange"]]$id] = input[["visnet_graphChange"]]$from
+      temp$to[temp$id == input[["visnet_graphChange"]]$id] = input[["visnet_graphChange"]]$to
+      graph_data$edges = temp
+    }
+    # If the user deleted something, remove those records.
+    if(input[["visnet_graphChange"]]$cmd == "deleteElements") {
+      globtmp=graph_data$nodes
+      for(node.id in input[["visnet_graphChange"]]$nodes) {
+        tmp = globtmp
+        tmp = tmp[tmp$id != node.id,]
+        globtmp = tmp
+      }
+      graph_data$nodes=globtmp
+      globtmp=graph_data$edges
+      for(edge.id in input[["visnet_graphChange"]]$edges) {
+        tmp = globtmp
+        tmp = tmp[tmp$id != edge.id,]
+
+        globtmp = tmp
+      }
+      tmp=globtmp
+      if(length(findexg(graph_data$nodes,graph_data$edges,1))!=
+         length(findexg(graph_data$nodes,tmp,1))){
+      for(i in input[["visnet_graphChange"]]$edges){
+          if(as.character(graph_data$edges[graph_data$edges[,"id"]==i,"from"]) %in%
+             as.character(subset(graph_data$nodes,group=="physical")$id)){
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label)[as.character(subset(graph_data$nodes,group=="physical")$id) %in% as.character(graph_data$edges[graph_data$edges[,"id"]==i,"from"])]
+            ## convert all data to uV/mV range - now only timeseries and filters but also disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]/(1000*1000)
+            # ExG$freq[,paste0("Filtered",chan)]=ExG$ts[,chan]
+          }
+          if(as.character(graph_data$edges[graph_data$edges[,"id"]==i,"to"]) %in%
+             as.character(subset(graph_data$nodes,group=="physical")$id)){
+            ## convert all data to uV range - now only timeseries, but also filters, disp, etc.
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label)[as.character(subset(graph_data$nodes,group=="physical")$id) %in% as.character(graph_data$edges[graph_data$edges[,"id"]==i,"to"])]
+            ## convert all data to uV/mV range - now only timeseries and filters, but also disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]/(1000*1000)
+            # ExG$freq[,paste0("Filtered",chan)]=ExG$ts[,chan]
+          }
+      }
+      }
+      if(length(findexg(graph_data$nodes,graph_data$edges,2))!=
+         length(findexg(graph_data$nodes,tmp,2))|
+         length(findexg(graph_data$nodes,graph_data$edges,3))!=
+         length(findexg(graph_data$nodes,tmp,3))|
+         length(findexg(graph_data$nodes,graph_data$edges,4))!=
+         length(findexg(graph_data$nodes,tmp,4))){
+        for(i in input[["visnet_graphChange"]]$edges){
+          if(as.character(graph_data$edges[graph_data$edges[,"id"]==i,"from"]) %in%
+             as.character(subset(graph_data$nodes,group=="physical")$id)){
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label)[as.character(subset(graph_data$nodes,group=="physical")$id) %in% as.character(graph_data$edges[graph_data$edges[,"id"]==i,"from"])]
+            ## convert all data to uV/mV range - now only timeseries and filters but also disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]/(1000)
+            # ExG$freq[,paste0("Filtered",chan)]=ExG$ts[,chan]
+          }
+          if(as.character(graph_data$edges[graph_data$edges[,"id"]==i,"to"]) %in%
+             as.character(subset(graph_data$nodes,group=="physical")$id)){
+            ## convert all data to uV range - now only timeseries, but also filters, disp, etc.
+            chan=as.character(subset(graph_data$nodes,group=="physical")$label)[as.character(subset(graph_data$nodes,group=="physical")$id) %in% as.character(graph_data$edges[graph_data$edges[,"id"]==i,"to"])]
+            ## convert all data to uV/mV range - now only timeseries and filters, but also disp, etc.
+            ExG$ts[,chan]=ExG$ts[,chan]/(1000)
+            # ExG$freq[,paste0("Filtered",chan)]=ExG$ts[,chan]
+          }
+        }
+      }
+      graph_data$edges=tmp
+    }
+      graph_data$EEG=findexg(graph_data$nodes,graph_data$edges,1)
+      graph_data$ECG=findexg(graph_data$nodes,graph_data$edges,2)
+      graph_data$EOG=findexg(graph_data$nodes,graph_data$edges,3)
+      graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
+      print("CHANGE ENDED")
+})
+}
+
+# renderPrint(print(visGetSelectedNodes("")))
+  # observeEvent(input$current_node_id, {
+  #   visNetworkProxy("network_proxy") %>%
+  #     visGetNodes()
+  # })
+
+# observeEvent(input$visnet_selected,{
+#   if(any(input$visnet_selected %in% graph_data$nodes[graph_data$nodes$group %in% "Cluster","id"])){
+#
+#     selicks=subset(graph_data$nodes,group=="Cluster")[graph_data$nodes[graph_data$nodes$group %in% "Cluster","id"] %in% input$visnet_selected,]
+#
+#     update_nodes_components()
+#
+#   }
+#
+# })
+
+
+```
+
+
+```{r,filter_apply}
+
+if(shiny_running()){
+observeEvent(input$filter_button,
+             {
+    if(!is.null(input$visnet_selected)&any(input$visnet_selected %in% biosigs$id)){
+      vis_sub=input$visnet_selected[input$visnet_selected %in% biosigs$id]
+
+      chans=graph_data$nodes$id %in% input$visnet_selected
+
+      filt_ch=as.character(graph_data$nodes[chans,"label"])
+
+      # if notch filtered, create new edge signal to filter
+      if(input$stoppoint!=0){
+        graph_data$edges=bind_rows(graph_data$edges,
+          data.frame(label=(nrow(graph_data$edges)+1):
+                           (nrow(graph_data$edges)+
+                              length(graph_data$nodes$id[graph_data$nodes$label %in% filt_ch])),
+                 from=graph_data$nodes$id[graph_data$nodes$label %in% filt_ch],
+                 to=graph_data$nodes$id[graph_data$nodes$label %in% "Notch"],
+          title=paste0("<p>Notch:", input$stoppoint,"</p>"),
+          value=1,stringsAsFactors = F))
+      }
+      ## same for passband
+      if(any(input$passband!=c(0,250))){
+        graph_data$edges=bind_rows(graph_data$edges,
+          data.frame(label=(nrow(graph_data$edges)+1):
+                           (nrow(graph_data$edges)+
+                              length(graph_data$nodes$id[graph_data$nodes$label %in% filt_ch])),
+                 from=graph_data$nodes$id[graph_data$nodes$label %in% filt_ch],
+                 to=graph_data$nodes$id[graph_data$nodes$label %in% "Low Pass"],
+          title=paste0("<p>Low Pass:", input$passband[1],"</p>"),
+          value=(input$passband[2]-input$passband[1])/(ExG$srate/2),stringsAsFactors = F))
+        graph_data$edges=bind_rows(graph_data$edges,
+          data.frame(label=(nrow(graph_data$edges)+1):
+                           (nrow(graph_data$edges)+
+                              length(graph_data$nodes$id[graph_data$nodes$label %in% filt_ch])),
+                 from=graph_data$nodes$id[graph_data$nodes$label %in% filt_ch],
+                 to=graph_data$nodes$id[graph_data$nodes$label %in% "High Pass"],
+          title=paste0("<p>High Pass:", input$passband[2],"</p>"),
+          value=(input$passband[2]-input$passband[1])/(ExG$srate/2),stringsAsFactors = F))
+      }
+      ## apply filter
+
+      tmp=freq_filter(ExG$ts[,graph_data[[filt_ch]]],ExG$srate,
+                      as.numeric(as.character(input$stoppoint)),
+                      input$passband,graph_data[[filt_ch]])
+
+      colnames(tmp)<-paste0("Filtered",colnames(tmp))
+      ExG$freq[,(colnames(ExG$freq) %in% paste0("Filtered",graph_data[[filt_ch]]))]=tmp
+
+      # tmp2=ExG$freq[,!(colnames(ExG$freq) %in% paste0("Filtered",graph_data[filt_ch]))]
+      # ExG$freq<-as.xts(tmp[,(colnames(tmp) %in% paste0("Filtered",graph_data[filt_ch]))],
+      #              seq(ExG$posix, by=1/ExG$srate,length=nrow(tmp)))
+      # ExG$freq=cbind(ExG$freq,tmp2)
+      # ExG$freq[,order()]
+
+      ## Change width of edge
+      # graph_data$edges
+    }
+
+})
+}
+```
+
+***
+
+```{r, filter_ui}
+if(shiny_running()){
+  selectInput("stoppoint", label = "Select (Notch) Frequency to silence:",
+              choices = c(0, 50, 60), selected = 0)
+}
+
+if(shiny_running()){
+  renderUI({sliderTextInput(
+   inputId = "passband",
+   label = "Select Band to pass:",
+    choices = c(seq(0.1,10,by=0.1),seq(10,round(ExG$srate/2,0))),
+selected = c(2, 30),
+   from_min = 0.1,
+    from_max = 10,
+   to_min = 30,
+   to_max = 100,
+   grid = TRUE
+)})
+}
+
+# renderPrint( {
+#     if (!is.null(input$current_node_id) && !is.null(input$visnet_nodes)) {
+#       print(input$current_node_id)
+#       # info <- data.frame(matrix(unlist(),
+#       #                           ncol = dim(nodes)[1], byrow = T),
+#       #                    stringsAsFactors = FALSE)
+#       # colnames(info) <- colnames(nodes)
+#       # info[info$id == input$current_node_id, ]
+#     }
+#   })
+
+
+# renderPrint(print(visNetworkProxy("visnet")%>%visGetSelectedNodes()))
+#
+# if(shiny_running()){
+#   renderUI({
+#   spindle_choices=c(colnames(ExG$freq),paste0("Clust",names(ExG$gssa)))
+#
+#   pickerInput(
+#     inputId = "",
+#     label = "Select Channels/Sources for Spindle Detection",
+#     choices =spindle_choices,
+#     options = list(
+#     `actions-box` = TRUE,
+#     size = 10
+#   ),
+#   multiple = F
+#   )
+#   })
+# }
+
+
+
+if(shiny_running()){
+  actionButton("filter_button", "Apply Filter / Bandpower")
+}
+
+
+
+```
+
+```{r}
+
+# renderPrint(print(c(filter_value(graph_data$nodes,graph_data$edges,s="EEG"),filter_value(graph_data$nodes,graph_data$edges,s="ECG"),filter_value(graph_data$nodes,graph_data$edges,s="EOG"),filter_value(graph_data$nodes,graph_data$edges,s="EMG"))))
+if(shiny_running()){
+  textInput("pat_desc", "Patient Description",
+              value = "John Doe, M, 25, Apnoe, no Medication", placeholder = "Name of Patient")
+}
+
+if(shiny_running()){
+  downloadButtonRmd("downloadEDF", "Download EDF")
+}
+
+# observeEvent(input$edf_create,{
+#   showModal(modalDialog(
+#   ,
+#
+#       )
+#     )
+# })
+
+```
+
+
+```{r,edfoutput,echo=F}
+################################## CREATE EDF BY PATIENT DESCRIPTION #####################
+################################## LOADING SCREEN MISSING AND NOT WORKING IF FUNCTION IN DIFFERENT SCRIPT #####################
+if(shiny_running() ){
+  output$downloadEDF <- downloadHandler(
+    filename = function(){paste0(input$pat_desc,"_",format(as.Date(ExG$posix),format="%d.%m.%y"),".edf")},
+    content = function(file){
+      fn=signals2EDF(mainDir=mainDir,pat_desc=input$pat_desc,ExG=ExG,graph_data=graph_data)
+      file.rename(fn, file)
+    }
+  )
+}
+```
