@@ -57,8 +57,9 @@ loadpackage<-function(x){
     else{eval(parse(text=paste0("library(\"",i,"\")")))}
   }
 }
-################################ POSSIBLE UNNESSECARY PACKAGES / CHECK SORT FOR READABILITY ##############################
-loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","future","kableExtra","xts","eegUtils","dlm","forecast","signal","promises",
+################################ POSSIBLE UNNESSECARY PACKAGES / CHECK SORT FOR READABILITY ################################ eegUtils dependency only in Neuroconductor.org
+loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","future","kableExtra","xts",
+              "eegUtils","dlm","forecast","signal","promises",
               "rmarkdown","plotly","visNetwork","Rssa","RHRV","data.table","DT","shinyTime","shinyWidgets","dygraphs","ggplotify","cowplot","tidyr"))
 
 ################################ set default code-chunk parameters
@@ -135,6 +136,7 @@ source(paste0(mainDir,"/constructor.R"))
 
 ### Input - data is assumed to be in Voltage and will be converted based on biosource, initial rounding to one microvolt.
 <!-- {.sidebar} -->
+
 ```{r Dygraph, child = 'Dygraph.Rmd'}
 # tag$script('$(document).on("keypress",function(e) {
 #               Shiny.onInputChange("keyinput",e.which);
@@ -150,106 +152,106 @@ source(paste0(mainDir,"/constructor.R"))
 <!-- It is extandable by Python and R data analysis methods and curated by professional biostatisticians and medical experts.     -->
 <!-- \end{tcolorbox} -->
 
-### Source & Filter - add edges from channels to biosources, select biosources and apply filter settings
+<!-- ### Source & Filter - add edges from channels to biosources, select biosources and apply filter settings -->
 
 
-```{r Visnet, child = 'graph_network.Rmd'}
+<!-- ```{r Visnet, child = 'graph_network.Rmd'} -->
 
-```
-
-
-### Sleep Spindles and QRS Detection
-
-```{r Events, child = 'Event_detection.Rmd'}
-
-```
-
-### Singular Spectrum Analysis - Manual Clustering: Click on Component (red square) -> Click on Component in New Cluster
-
-```{r Dynamics, child = 'Dynamics.Rmd'}
-
-```
-
-### Data Viewer & PDF - data is downsampled based on window range (a) more than 30 minutes (b) between 30 minutes and 20 seconds (c) less than 20 seconds
-
-```{r Report, child = 'Reporting.Rmd'}
-
-```
-
-```{r}
+<!-- ``` -->
 
 
-# if(shiny_running()){
-#   # dropdown(
-#   # tags$h3("List of Input"),
-#   renderUI({
-#     chansels=colnames(ExG$ts)
-#   pickerInput(
-#     inputId = "disp_chan",
-#     label = "Select Channels/Sources for Glimpse",
-#     choices =chansels,
-#     options = list(
-#     `actions-box` = TRUE,
-#     size = 10,
-#     `selected-text-format` = "count > 3"
-#   ),
-#   multiple = TRUE
-#   )
-#   })
-# }
-#   #,
-# if(shiny_running()){
-#
-# pickerInput(
-#     inputId = "disp_event",
-#     label = "Select Events/Filters for Glimpse",
-#     choices = c("Raw Signal","Bandpower","Stages","Events"),
-#     options = list(
-#     `actions-box` = TRUE,
-#     size = 10,
-#     `selected-text-format` = "count > 3"
-#   ),
-#   multiple = TRUE
-#   )
-# }
-#   #,
-# # if(shiny_running()){
-# #
-# # pickerInput(
-# #     inputId = "excl_sigs",
-# #     label = "Select Exclusion Periods for Glimpse",
-# #     choices = c("W","S1","S2","S3","REM"),
-# #     options = list(
-# #     `actions-box` = TRUE,
-# #     size = 10,
-# #     `selected-text-format` = "count > 3"
-# #   ),
-# #   multiple = TRUE
-# #   )
-# # }
-# if(shiny_running()){
-# renderUI({
-# sel_choices=colnames(ExG$rssa)
-# pickerInput(
-#     inputId = "disp_ssa",
-#     label = "Select Clusters/Components for Glipse",
-#     choices = sel_choices,
-#     options = list(
-#     `actions-box` = TRUE,
-#     size = 10,
-#     `selected-text-format` = "count > 3"
-#   ),
-#   multiple = TRUE
-#   )
-#
-# })
-# }
-#
-# if(shiny_running()){
-#   switchInput(inputId = "sep_chan", label = "parallel Channels", value=F)
-# }
-#
-#
+<!-- ### Sleep Spindles and QRS Detection -->
+
+<!-- ```{r Events, child = 'Event_detection.Rmd'} -->
+
+<!-- ``` -->
+
+<!-- ### Singular Spectrum Analysis - Manual Clustering: Click on Component (red square) -> Click on Component in New Cluster -->
+
+<!-- ```{r Dynamics, child = 'Dynamics.Rmd'} -->
+
+<!-- ``` -->
+
+<!-- ### Data Viewer & PDF - data is downsampled based on window range (a) more than 30 minutes (b) between 30 minutes and 20 seconds (c) less than 20 seconds -->
+
+<!-- ```{r Report, child = 'Reporting.Rmd'} -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
 
 
-```
+<!-- # if(shiny_running()){ -->
+<!-- #   # dropdown( -->
+<!-- #   # tags$h3("List of Input"), -->
+<!-- #   renderUI({ -->
+<!-- #     chansels=colnames(ExG$ts) -->
+<!-- #   pickerInput( -->
+<!-- #     inputId = "disp_chan", -->
+<!-- #     label = "Select Channels/Sources for Glimpse", -->
+<!-- #     choices =chansels, -->
+<!-- #     options = list( -->
+<!-- #     `actions-box` = TRUE, -->
+<!-- #     size = 10, -->
+<!-- #     `selected-text-format` = "count > 3" -->
+<!-- #   ), -->
+<!-- #   multiple = TRUE -->
+<!-- #   ) -->
+<!-- #   }) -->
+<!-- # } -->
+<!-- #   #, -->
+<!-- # if(shiny_running()){ -->
+<!-- # -->
+<!-- # pickerInput( -->
+<!-- #     inputId = "disp_event", -->
+<!-- #     label = "Select Events/Filters for Glimpse", -->
+<!-- #     choices = c("Raw Signal","Bandpower","Stages","Events"), -->
+<!-- #     options = list( -->
+<!-- #     `actions-box` = TRUE, -->
+<!-- #     size = 10, -->
+<!-- #     `selected-text-format` = "count > 3" -->
+<!-- #   ), -->
+<!-- #   multiple = TRUE -->
+<!-- #   ) -->
+<!-- # } -->
+<!-- #   #, -->
+<!-- # # if(shiny_running()){ -->
+<!-- # # -->
+<!-- # # pickerInput( -->
+<!-- # #     inputId = "excl_sigs", -->
+<!-- # #     label = "Select Exclusion Periods for Glimpse", -->
+<!-- # #     choices = c("W","S1","S2","S3","REM"), -->
+<!-- # #     options = list( -->
+<!-- # #     `actions-box` = TRUE, -->
+<!-- # #     size = 10, -->
+<!-- # #     `selected-text-format` = "count > 3" -->
+<!-- # #   ), -->
+<!-- # #   multiple = TRUE -->
+<!-- # #   ) -->
+<!-- # # } -->
+<!-- # if(shiny_running()){ -->
+<!-- # renderUI({ -->
+<!-- # sel_choices=colnames(ExG$rssa) -->
+<!-- # pickerInput( -->
+<!-- #     inputId = "disp_ssa", -->
+<!-- #     label = "Select Clusters/Components for Glipse", -->
+<!-- #     choices = sel_choices, -->
+<!-- #     options = list( -->
+<!-- #     `actions-box` = TRUE, -->
+<!-- #     size = 10, -->
+<!-- #     `selected-text-format` = "count > 3" -->
+<!-- #   ), -->
+<!-- #   multiple = TRUE -->
+<!-- #   ) -->
+<!-- # -->
+<!-- # }) -->
+<!-- # } -->
+<!-- # -->
+<!-- # if(shiny_running()){ -->
+<!-- #   switchInput(inputId = "sep_chan", label = "parallel Channels", value=F) -->
+<!-- # } -->
+<!-- # -->
+<!-- # -->
+
+
+<!-- ``` -->

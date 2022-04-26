@@ -1,13 +1,15 @@
-```{r}
+
+```{r render_Dygraph}
 ######################################## CREATE MAIN TIME SERIES DISPLAY
 if(shiny_running()){
   output$dygraph<-
     renderDygraph({
       ################################## NEW FILES NEED NEW BOUNDARIES -> "retainDateWindow"
       if(ExG$newfile){
-          d<-dygraph(ExG$disp) %>% dyAxis("y", label = "Electric Potential (EEG-uV / E(CMO)G-mV)",valueRange=c(-50,50)) %>%
+          d<-dygraph(ExG$disp) %>% 
+            dyAxis("y", label = "Electric Potential (EEG-uV / E(CMO)G-mV)",valueRange=c(-50,50)) %>%
             dyRangeSelector(height = 90) %>%
-          dyOptions(axisLineWidth = 1.5, drawGrid = FALSE) %>%
+            dyOptions(axisLineWidth = 1.5, drawGrid = FALSE,connectSeparatedPoints=T) %>%
             dyLegend(show = "never")
           ExG$newfile=F
       }else{
@@ -24,7 +26,8 @@ if(shiny_running()){
           var message=ann.text;
           Shiny.onInputChange('downRater',0);
           Shiny.setInputValue('downRater',message);}")
-    }
+      }
+      
     if("Bandpower" %in% input$disp_event){
       # Take Bandpower columns - always last ones
       dn<-colnames(ExG$disp)[(ncol(ExG$disp)-4):(ncol(ExG$disp))]
@@ -35,6 +38,7 @@ if(shiny_running()){
             dyAxis("y2", label = "Bandpower (%)",valueRange=c(0,100))
         }
     }
+      
     if("Stages" %in% input$disp_event){
       for(i in 1:(nrow(ExG$stages))){
         if(any(ExG$stages[i,1] %in% c("W","S1","S2","S3","REM","A") )){
@@ -46,6 +50,7 @@ if(shiny_running()){
           }
       }
     }
+      
     if("Sleep Spindles" %in% input$disp_event){
       for(i in 1:(nrow(ExG$spindles))){
         ## same as above, closest existing timestamp, events are the Sleep Spindles only atm
@@ -61,14 +66,14 @@ if(shiny_running()){
           which(abs(index(ExG$disp)-ExG$qrs[i,2])==min(abs(index(ExG$disp)-ExG$qrs[i,2])))],
           text="QRS",attachAtBottom =T,width=20,height=20)
       }
-    }
+      }
+      ###################DISPLAY d at render POSITION
     d
   })
 }
 ```
 
-
-```{r}
+```{r timeseries_ui}
 ### FIRST PANEL UI ELEMENTS PLACEMENT
 if(shiny_running()){
   fillCol(
@@ -101,7 +106,7 @@ if(shiny_running()){
           multiple = TRUE
           )
         }),
-      renderPrint(ExG$recording)
+      renderPrint(length(ExG$ts))
         # switchInput(inputId = "sep_chan",
         #             label = "parallel lines", value=F)
       ,flex=c(1,2,2,2,1)),
@@ -119,44 +124,35 @@ ggplot() +
 geom_step(data=d, mapping=aes(x=x, y=y),group=1)+theme_classic()
 }
 
+if(shiny_running()){
+observeEvent(input$upload,{
+  ###################################### BY CLICK ON UPL BTN -> SHOW THIS
+  showModal(modalDialog(
+    #################################### POSSIBLY REDUCE OPTIONS FOR READABILITY
+    dateInput("rec_date", label="Start Date", value = NULL, min = NULL, max = NULL,
+              format = "yyyy-mm-dd", startview = "month", weekstart = 0,language = "en", 
+              width = NULL, autoclose = TRUE, datesdisabled = NULL, daysofweekdisabled = NULL),
+  
+    textInput("rec_time", "Start Time (xx:xx or xx:xx:xx)", value = init.time, width = NULL, placeholder = NULL),
+    
+    numericInput("srate","Sampling Frequency",value=250,min=1,max=1000),
+    
+    fileInput("static_data", "Upload Data (EDF/CSV/BIN):", multiple = F, accept = c(".csv",".edf",".BIN"),
+      width = NULL, buttonLabel = "Browse...",
+      placeholder = "No file selected"),
+    ##################################### IS THIS THE BEST UI DISPLAY?
+    switchInput(inputId = "rec_btn",label = "Bluetoot device name", labelWidth = "80px"),
+    ##################################### POSSIBLY SCALE INPUT HERE
+    renderTable(head(ExG$ts)),size="l"
+  )
+)
+})
+}
 ```
 
 
+
 ```{r,file_observer}
-
-# ## Input controls first page, used when uploaded only
-# if(shiny_running()){
-#   dateInput("rec_date", label="Start Date", value = NULL, min = NULL, max = NULL,
-#   format = "yyyy-mm-dd", startview = "month", weekstart = 0,
-#   language = "en", width = NULL, autoclose = TRUE,
-#   datesdisabled = NULL, daysofweekdisabled = NULL)
-# }
-#
-# if(shiny_running()){
-#   textInput("rec_time", "Start Time (xx:xx or xx:xx:xx)", value = init.time, width = NULL,
-#   placeholder = NULL)
-# }
-#
-# if(shiny_running()){
-# sliderInput("srate", label = "Sampling Frequency", min = 0,max = 400, value = 250,step=10)
-# }
-#
-# if(shiny_running()){
-#   fileInput("static_data", "Upload Data (EDF/CSV/BIN):", multiple = F, accept = c(".csv",".edf",".BIN"),
-#       width = NULL, buttonLabel = "Browse...",
-#       placeholder = "No file selected")
-# }
-
-## initial extra modal for difficult parameter entry only
-# if(shiny_running()){
-# observeEvent(input$upload,{
-#   showModal(modalDialog(
-#
-#
-#   ,
-#
-#   )
-# })
 
 ## Include Export and Import Options, funcitons is faulty
 ## DATA upload actions, currently only EDF and csv
@@ -184,7 +180,6 @@ if(shiny_running()){
       biosigs=subset(graph_data$nodes,group=="biological")
       physigs=subset(graph_data$nodes,group=="physical")
       digsigs=subset(graph_data$nodes,group=="digital")
-      #
 
       graph_data$edges=setNames(data.frame(matrix(ncol = 3, nrow = 0)), c("from", "to","id"))
       ExG$freq=ExG$ts
@@ -193,6 +188,7 @@ if(shiny_running()){
       ExG$orig.ssa=downsample(ExG$freq,60*15)
       ExG$orig.disp=downsample(ExG$freq,60*15)
       ExG$disp=downsample(ExG$freq,60*15)
+      ExG$sight="time"
       ExG$newfile=T
       #
       # ExG$orig.disp=tmp
@@ -214,11 +210,31 @@ if(shiny_running()){
     print("READIN WORKED")
   })
 
-observeEvent(input$srate,{
+observeEvent(c(input$srate,input$rec_time,input$rec_date),{
   ExG$srate=input$srate
+  ExG$posix=as.POSIXct(paste(input$rec_date,input$rec_time))
 })
 }
 
+if(shiny_running()){
+observeEvent(input$upload,{
+  showModal(modalDialog(
+    dateInput("rec_date", label="Start Date", value = NULL, min = NULL, max = NULL,
+  format = "yyyy-mm-dd", startview = "month", weekstart = 0,
+  language = "en", width = NULL, autoclose = TRUE,
+  datesdisabled = NULL, daysofweekdisabled = NULL),
+  textInput("rec_time", "Start Time (xx:xx or xx:xx:xx)", value = init.time, width = NULL,
+  placeholder = NULL),
+  numericInput("srate","Sampling Frequency",value=250,min=1,max=1000),
+  fileInput("static_data", "Upload Data (EDF/CSV/BIN):", multiple = F, accept = c(".csv",".edf",".BIN"),
+      width = NULL, buttonLabel = "Browse...",
+      placeholder = "No file selected"),
+  switchInput(inputId = "rec_btn",label = "Bluetoot device name", labelWidth = "80px"),
+  renderTable(head(ExG$ts)),size="l"
+  )
+)
+})
+}
 if(shiny_running()){
 observeEvent(input$upload,{
   showModal(modalDialog(
@@ -242,16 +258,7 @@ observeEvent(input$upload,{
 if(shiny_running()){
   observeEvent(input$rec_btn,{
      
-    ############ MOCKUP SCRIPT ##################
-    # v %<-% {
-    #   tmp=lorenz(sigma = 10, beta = 8/3, rho = 28,
-    #             start = c(5, 5, 5), time = seq(0, 10000, by = 0.01),
-    #             do.plot = F)
-    #   tmp
-    #   }
-    # Sys.sleep(5)
-    # tmp=data.frame(Fp1=v[["x"]],F1=v[["y"]],C3=v[["z"]])
-    
+   
     ########### COMING SOON - REAL SCRIPT #########
     if(input$rec_btn==T){ ### WHILE RECORDING
       plan(multisession)
@@ -263,6 +270,7 @@ if(shiny_running()){
         source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM  
         py$connect_explore()
       }
+      print("GRABBIN DATA")
        ### EVALUATE PARALLEL
         .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
         library(reticulate) ### LOAD EM
@@ -273,6 +281,7 @@ if(shiny_running()){
           tmp=rbind(tmp,data.frame(py$explore_df()))
         }
       tmp=tmp/(1000*1000)
+      print("FINISHED GRABBIN")
       ### ALL 5 SECONDS GRAB DATA AND THROW ON GRAPH UNTIL BROKEN
       ### POSSIBLY FIX BY EXG$hold  ??
 # init.channels<<-colnames(tmp)
@@ -315,105 +324,47 @@ if(shiny_running()){
     graph_data$EMG=findexg(graph_data$nodes,graph_data$edges,4)
     ExG$recording=T
     print("finished first record")
-# w %<-% {
-#   .libPaths("C:/Users/royde/Documents/R/win-library/4.0")
-#   library(reticulate)
-#   source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py"))
-#   b=c()
-#   for(i in 1:60){
-#     b=c(b,py$explore_df())
-#   }
-#   b
-# }
-# source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py"))
-# liveish_data <- reactive({
-#   invalidateLater(100)
-#   b=c()
-#   for(i in 1:60){
-#     b=c(b,py$explore_df())
-#   }
-#   b=b[-1]
-# 
-#   if(length(w)%%(8*3) !=0){
-#     b=c(rep(0,(8*3)-length(b)%%(8*3)),b)
-#   }
-#   b=matrix(b,ncol=8)
-#   b=data.frame(b)
-#   liveish_data=rbind(liveish_data,b)
-#   Disp$disp=liveish_data
-# })
 
-# w %<-% {
-#   .libPaths("C:/Users/royde/Documents/R/win-library/4.0")
-#   library(reticulate)
-#   source_python(paste0("C:/Users/royde/Desktop/explore_dataframe.py"))
-#   b=c()
-#   for(i in 1:60){
-#     b=c(b,py$explore_df())
-#   }
-#   b
-# }
-# w=w[-1]
-# 
-# if(length(w)%%(8*3) !=0){
-#   w=c(rep(0,(8*3)-length(w)%%(8*3)),w)
-# }
-# w=matrix(w,ncol=8)
-# 
-# init.ExG=data.frame(Ch1=w[,1],
-#                     Ch2=w[,2],
-#                     Ch3=w[,3],
-#                     Ch4=w[,4],
-#                     Ch5=w[,5],
-#                     Ch6=w[,6],
-#                     Ch7=w[,7],
-#                     Ch8=w[,8])
-## 100 datapoints per second
     }else{
       ExG$recording=F
     }
   })
   
 
-  
-  
   observe({
-    invalidateLater(90000)
+    invalidateLater(45000) ### autoinvalidate after setting values?
     print("updating")
     if(ExG$recording==T){
-      
-       promise<-future_promise({ ### EVALUATE PARALLEL
+       ExG_live<-future_promise({ ### EVALUATE PARALLEL
         .libPaths("C:/Users/royde/Documents/R/win-library/4.0") ### GRAB DEFAULTS
-        library(reticulate) ### LOAD EM
+        library(reticulate)
         mainDir<<-getwd()
-        source_python(paste0(mainDir,"/EEG.py")) ### CREATE LSL STREAM
+        source_python(paste0(mainDir,"/EEG.py"))
         tmp=c()
         for(i in 1:30){ ### FOR EACH 5 seconds GRAB DATA
           tmp=rbind(tmp,data.frame(py$explore_df()))
         }
-        tmp
-        #tmp  ### REORIENT DATA
-        #tmp  ### GIVE IT BACK
-       } )
-  print("started promise")
-  then(promise,onFulfilled = 
-  function(value) {
-    ExG$ts<<-rbind(ExG$ts,as.xts(data.frame(value),
+        tmp/(1000*1000)
+       })
+    print("started promise")
+    
+    then(ExG_live,onFulfilled = function(value) {
+      ExG$ts<<-rbind(ExG$ts,as.xts(data.frame(value),
                 seq(last(index(ExG$ts))+1,
-                    by=1/ExG$srate, length=nrow(data.frame(tmp))))/(1000*1000))
+                    by=1/ExG$srate, length=nrow(data.frame(value)))))
+      ExG$freq<<-ExG$ts
+      colnames(ExG$freq)=paste0("Filtered",colnames(ExG$ts))
+      ExG$orig.chan<<-downsample(ExG$freq,60*15)
+      ExG$orig.ssa<<-downsample(ExG$freq,60*15)
+      ExG$orig.disp<<-downsample(ExG$freq,60*15)
+      ExG$disp<<-downsample(ExG$freq,60*15)
+      a=first(index(ExG$orig.disp))
+      b=last(index(ExG$orig.disp))
+      # tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
+      ExG$resol<<-c(a,b)
+      ExG$newfile<<-T
   })
     print("evaluated promise")  
-  
-    # then(v,onFulfilled=function(v){ 
-    #           rbind(ExG$ts,
-    #                        as.xts(data.frame(v),
-    #             seq(last(index(ExG$ts))+1,
-    #                 by=1/ExG$srate, length=nrow(data.frame(tmp))))/(1000*1000))
-    #     }
-        # ) 
-      
-      
-
     }
   })
 }
@@ -421,17 +372,19 @@ if(shiny_running()){
 ```
 
 
-```{r}
+
+```{r dygraph_staging}
+############################## BY CLICK IN DYGRAPH ON STAGES SELECTED -> INPUT NEW STAGE AT CLICK POS
 if(shiny_running()){
 observeEvent(input[["dygraph_click"]],{
-  ## Add new row with inital Value Artifact to the EEG staging on click in graphic
-  ## Get the Date
+  ########## GET DATE AT POSITION CLICK
   if("Stages" %in% input$disp_event){
   date_click=strsplit(input[["dygraph_click"]][["x"]],"T")[[1]][1]
-  ## Get the Time, without the Z
+  ########## GET TIME AT CLICK
   time_click=strsplit(strsplit(input[["dygraph_click"]][["x"]],"T")[[1]][2],"Z")[[1]][1]
-  ## Adjust format and timezone
+  ########## ADJUST TIME FORMAT
   date_time_click=as.POSIXct(paste(date_click,time_click,format="%Y-%m-%d %H:%M:%OS"))+60*60
+  ########## ADD TO STAGE DISPLAY
   ExG$stages=
     data.frame(rbind(ExG$stages,
           setNames(data.frame("A",
@@ -440,53 +393,243 @@ observeEvent(input[["dygraph_click"]],{
                    colnames(ExG$stages))))
   }
 })
-
-
-
+############################## BY (DOUBLE-)CLICK ON A STAGE -> CHANGE/DELETE STAGING
 observeEvent(input$downRater,{
   if(input$downRater!=0){
   downList=c("A","W","REM","S1","S2","S3")
   if(any(ExG$stages[as.numeric(input$downRater),1] %in% downList)){
      if(ExG$stages[as.numeric(input$downRater),1]!="S3"){
-     ExG$stages[as.numeric(input$downRater),1]=
-       downList[which(downList %in% ExG$stages[as.numeric(input$downRater),1] )+1]
+       ExG$stages[as.numeric(input$downRater),1]=
+         downList[which(downList %in% ExG$stages[as.numeric(input$downRater),1] )+1]
      }else{
        ExG$stages=ExG$stages[-as.numeric(input$downRater),]
-     }
-  }
-  }
+     }}}
 })
-
 observeEvent(input$upRater,{
   if(input$upRater!=0){
   upList=c("S3","S2","S1","REM","W","A")
   if(any(ExG$stages[as.numeric(input$upRater),1] %in% upList)){
     if(ExG$stages[as.numeric(input$upRater),1]!="A"){
       ExG$stages[as.numeric(input$upRater),1]=
-      upList[which(upList %in% ExG$stages[as.numeric(input$upRater),1] )+1]
+        upList[which(upList %in% ExG$stages[as.numeric(input$upRater),1] )+1]
     }else{
       ExG$stages=ExG$stages[-as.numeric(input$upRater),]
-    }
-  }
-  }
+    }}}
 })
 }
-
 ```
 
+<!-- ```{r} -->
+<!-- ################################### DYGRAPH EDIT FOR LARGE DATA ##################################### -->
+<!-- ################################### ERROR: DOES NOT DIGEST NEW DATA ################################# -->
+
+<!-- ################################### IF WINDOW BOUNDARIES CHANGE BY SCROLLING THROUGH TIME SERIES -->
+<!-- if(shiny_running()){ -->
+<!--   eventReactive({c(input[["dygraph_date_window"]])}, -->
+<!--   { -->
+<!--     if(!ExG$newfile){ -->
+<!--       ##Check current display ranges range,timezone conversion etc. -->
+<!--       r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60 -->
+<!--       r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60 -->
+<!--       range=c(r1,r2) -->
+<!--       d_range=difftime(range[2],range[1],units="secs") -->
+<!--       resize=F -->
+
+<!--       ## Resolution changed? "bird"-hour, "time"-minute, "detail"-second -->
+<!--       ## if so data need to be resampled resize=T -->
+<!--       if(d_range<60 & ExG$sight!="detail"){ -->
+<!--         resize=T -->
+<!--         ExG$sight="detail" -->
+<!--         } -->
+<!--       if((d_range>=60 ) & ExG$sight!="time"){ -->
+<!--         resize=T -->
+<!--         ExG$sight="time" -->
+<!--         } -->
+<!--       # if((d_range>=60*30 & d_range<60*60*24) & ExG$sight!="bird"){ -->
+<!--       #   resize=T -->
+<!--       #   ExG$sight="bird" -->
+<!--       # } -->
+<!--       ## Update Resolution of data -->
+<!--       if(range[2]>min(last(index(ExG$orig.disp)),ExG$resol[2])|| -->
+<!--          range[1]<max(first(index(ExG$orig.disp)),ExG$resol[1])|| -->
+<!--          resize){ -->
+<!--         ## if new data selection, dont change resolution borders -->
+<!--         # if(!ExG$redat){ -->
+<!--         # -->
+<!--         # }else{ -->
+<!--         #   r1=range[1] -->
+<!--         #   r2=range[2] -->
+<!--         # } -->
+<!--         r1=max(first(index(ExG$orig.disp)),range[1]-10*d_range) -->
+<!--         r2=min(last(index(ExG$orig.disp)),range[2]+10*d_range) -->
+<!--         #Seconds down to full -->
+<!--         if(ExG$sight=="detail"){ -->
+<!--           if(r1!=first(index(ExG$orig.disp))){ -->
+<!--             ## downsample out of scope to minutes, rest complete -->
+<!--             tmp=rbind( -->
+<!--               downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*ExG$srate*5), -->
+<!--               window(ExG$orig.disp,start=r1,end=r2)) -->
+<!--             }else{tmp=window(ExG$orig.disp,start=r1,end=r2)} -->
+<!--           if(r2!=last(index(ExG$orig.disp))){ -->
+<!--             tmp=rbind(tmp, -->
+<!--             downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate*60*5))} -->
+<!--         } -->
+<!--         # Minutes , down to seconds -->
+<!--         if(ExG$sight=="time"){ -->
+<!--           if(r1!=first(index(ExG$orig.disp))){ -->
+<!--           ## downsample out of scope to minutes, rest to seconds -->
+<!--             tmp=rbind( -->
+<!--                 downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),ExG$srate), -->
+<!--                 downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)) -->
+<!--             }else{tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)} -->
+<!--           if(r2!=last(index(ExG$orig.disp))){ -->
+<!--             tmp=rbind(tmp, -->
+<!--             downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate))} -->
+<!--         } -->
+<!--       # hours down to minutes -->
+<!--       # if(ExG$sight=="bird"){ -->
+<!--       #   if(a!=first(index(ExG$orig.disp))){ -->
+<!--       #       tmp=rbind( -->
+<!--       #         downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=a),250*60*10), -->
+<!--       #         downsample(window(ExG$orig.disp,start=a,end=b),250*60)) -->
+<!--       #       }else{ -->
+<!--       #           tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60) -->
+<!--       #         } -->
+<!--       #     if(b!=last(index(ExG$orig.disp))){ -->
+<!--       #       tmp=rbind(tmp, -->
+<!--       #       downsample(window(ExG$orig.disp,start=b,end=last(index(ExG$orig.disp))),250*60*10)) -->
+<!--       #       } -->
+<!--       # } -->
+<!--       ExG$resol=c(r1,r2) -->
+<!--       ExG$disp=tmp -->
+<!--   } -->
+<!--     }else{ -->
+<!--       Sys.sleep(5) -->
+<!--        ExG$newfile=F -->
+<!--      } -->
+<!-- }) -->
+<!-- } -->
+
+<!-- if(shiny_running()){ -->
+<!-- observeEvent({c(input$disp_chan, -->
+<!--                 input$disp_event, -->
+<!--                 input$disp_ssa)}, -->
+<!--   { -->
+<!--   # Select Channels to display - mutually exclusive for Source and Channel -->
+<!--   if(!is.null(input$disp_chan)){ -->
+<!--     ## Check for mutually exclusive groups - not working -->
+<!--     if(!all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))| -->
+<!--        !all(colnames(ExG$orig.chan) %in% paste0("Filtered",input$disp_chan))){newdata=T}else{newdata=F} -->
+<!--   }else{ -->
+<!--     if(!is.null(colnames(ExG$orig.chan))){newdata=T}else{newdata=F} -->
+<!--   } -->
+
+<!--   #if anything is not displayed already -->
+<!--   if(newdata){ -->
+<!--     tmp=xts(rep(NA,length(index(ExG$freq))),index(ExG$freq)) -->
+<!--     colnames(tmp)="Empty" -->
+<!--     if(!is.null(input$disp_chan)){ -->
+<!--       for(i in 1:length(input$disp_chan)){ -->
+<!--           tmp=merge(tmp,ExG$freq[,paste0("Filtered",input$disp_chan[i])]) -->
+<!--       } -->
+<!--     ExG$orig.chan=tmp[,colSums(is.na(tmp))<1000] -->
+<!--     }else{ -->
+<!--     ExG$orig.chan=tmp -->
+<!--     } -->
+<!--     # ExG$colors=c("#ffffe5","#f7fcb9","#d9f0a3","#addd8e","#78c679","#41ab5d","#238443","#005a32")[ -->
+<!--     #   colnames(ExG$freq) %in% sort(paste0("Filtered",input$disp_chan)) -->
+<!--     # ] -->
+<!--   } -->
+<!--   newclust=(!all(input$disp_ssa %in% colnames(ExG$orig.ssa)))| -->
+<!--     (!all(colnames(ExG$orig.ssa) %in% input$disp_ssa)) -->
+<!--   if(newdata|newclust){ -->
+<!--     tmp=ExG$orig.chan -->
+<!--     # if(input$clust_disp){ -->
+<!--       # ExG$rssa<-recons(ExG$ssa,ExG$gssa,stacked = F) -->
+<!--     # }else{ -->
+<!--     #   ExG$rssa<-recons(ExG$ssa,ExG$gssa,separate = T) -->
+<!--     #} -->
+<!--     for(i in input$disp_ssa){ -->
+<!--       tmp=merge(tmp, ExG$rssa[,i]) -->
+<!--     } -->
+<!--     ExG$orig.ssa=tmp -->
+<!--   } -->
+
+<!--   ## Check if alpha band is already displayed, not clean -->
+<!--   test_q1=(!any(grepl("BP",colnames(ExG$orig.disp))) & "Bandpower" %in% input[["disp_event"]])| -->
+<!--       (any(grepl("BP",colnames(ExG$orig.disp))) & !("Bandpower" %in% input[["disp_event"]])) -->
+
+<!--   # Check not implemented -->
+<!--   # test_q2=(all(graph_data$EEG %in% colnames(ExG$orig.disp)) & !("Raw Signal" %in% input$disp_event))| -->
+<!--   #               (!all(graph_data$EEG %in% colnames(ExG$orig.disp)) & ( "Raw Signal" %in% input$disp_event)) -->
+
+<!--   if(test_q1|newdata|newclust){ -->
+<!--     # if(input$clust_disp){} -->
+<!--     tmp=ExG$orig.ssa -->
+<!--     # if("Raw Signal" %in% input$disp_event){ -->
+<!--     #   tmp=merge(tmp,ExG$ts[,unlist(lapply(strsplit(colnames(ExG$orig.chan),"Filtered"),function(x)x[[2]]))])   } -->
+<!--   if("Bandpower" %in% input$disp_event){tmp=merge(tmp,ExG$bandpower)} -->
+<!--     ##Downsample already -->
+<!--     ExG$orig.disp=list("bird"=downsample(tmp,250*5),"minute"=downsample(tmp,250),"detail"=tmp) -->
+<!--   } -->
+<!--   # switch for resolution -->
+<!--   # if(ExG$redat==F){ExG$redat=T}else{ExG$redat=F} -->
+
+
+<!--   r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60 -->
+<!--   r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60 -->
+<!--   range=c(r1,r2) -->
+<!--   d_range=difftime(range[2],range[1],units="secs") -->
+<!--   # if(ExG$sight=="detail"){ -->
+<!--   #     if(r1!=first(index(ExG$orig.disp))){ -->
+<!--   #       ## downsample out of scope to minutes, rest complete -->
+<!--   #         tmp=rbind( -->
+<!--   #           downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*ExG$srate*5), -->
+<!--   #           window(ExG$orig.disp,start=r1,end=r2)) -->
+<!--   #     }else tmp=window(ExG$orig.disp,start=r1,end=r2) -->
+<!--   #     if(r2!=last(index(ExG$orig.disp))){ -->
+<!--   #         tmp=rbind(tmp, -->
+<!--   #         downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate*60*5))} -->
+<!--   #     } -->
+<!--   #       # Minutes , down to seconds -->
+<!--   #   if(ExG$sight=="time"){ -->
+<!--   #       if(r1!=first(index(ExG$orig.disp))){ -->
+<!--   #         ## downsample out of scope to minutes, rest to seconds -->
+<!--   #         tmp=rbind( -->
+<!--   #             downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),ExG$srate), -->
+<!--   #             downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)) -->
+<!--   #         }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate) -->
+<!--   #         if(r2!=last(index(ExG$orig.disp))){ -->
+<!--   #           tmp=rbind(tmp, -->
+<!--   #           downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate))} -->
+<!--   #   } -->
+<!--     ExG$resol=c(r1,r2) -->
+<!--     ExG$disp=tmp -->
+
+<!--     }) -->
+<!-- } -->
+
+<!-- ``` -->
+
+
 ```{r}
-################################### DYGRAPH EDIT FOR LARGE DATA #################################
-################################### ERROR: DOES NOT DIGEST NEW DATA #################################
+## interactive update window
 if(shiny_running()){
-eventReactive({c(input[["dygraph_date_window"]])},
+observeEvent({c(input[["dygraph_date_window"]],
+                input$disp_chan,
+               input$disp_event,
+               input$disp_ssa)},
   {
     if(!ExG$newfile){
   ##Check current display ranges range,timezone conversion etc.
-  r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60
-  r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60
+  r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "),tz="UTC")
+  attr(r1,"tzone")<-attributes(ExG$posix)$tzone
+  r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "),tz="UTC")
+  attr(r2,"tzone")<-attributes(ExG$posix)$tzone
   range=c(r1,r2)
   d_range=difftime(range[2],range[1],units="secs")
   resize=F
+  redat=F
   ## Resolution changed? "bird" -hour, "time"-minute, "detail" -second
   ## if so data need to be resampled resize=T
   if(d_range<60 & ExG$sight!="detail"){
@@ -502,100 +645,38 @@ eventReactive({c(input[["dygraph_date_window"]])},
   #   ExG$sight="bird"
   # }
 
-  ## Update Resolution of data
-  if(range[2]>min(last(index(ExG$orig.disp)),ExG$resol[2])||
-     range[1]<max(first(index(ExG$orig.disp)),ExG$resol[1])||
-     resize){
-    ## if new data selection, dont change resolution borders
-    # if(!ExG$redat){
-    #
-    # }else{
-    #   r1=range[1]
-    #   r2=range[2]
-    # }
-    r1=max(first(index(ExG$orig.disp)),range[1]-10*d_range)
-    r2=min(last(index(ExG$orig.disp)),range[2]+10*d_range)
-      #Seconds down to full
-    if(ExG$sight=="detail"){
-      if(r1!=first(index(ExG$orig.disp))){
-        ## downsample out of scope to minutes, rest complete
-          tmp=rbind(
-            downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*ExG$srate*5),
-            window(ExG$orig.disp,start=r1,end=r2))
-      }else tmp=window(ExG$orig.disp,start=r1,end=r2)
-      if(r2!=last(index(ExG$orig.disp))){
-          tmp=rbind(tmp,
-          downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate*60*5))}
-      }
-        # Minutes , down to seconds
-    if(ExG$sight=="time"){
-        if(r1!=first(index(ExG$orig.disp))){
-          ## downsample out of scope to minutes, rest to seconds
-          tmp=rbind(
-              downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),ExG$srate),
-              downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate))
-          }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)
-          if(r2!=last(index(ExG$orig.disp))){
-            tmp=rbind(tmp,
-            downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate))}
-    }
-      # hours down to minutes
-      # if(ExG$sight=="bird"){
-      #   if(a!=first(index(ExG$orig.disp))){
-      #       tmp=rbind(
-      #         downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=a),250*60*10),
-      #         downsample(window(ExG$orig.disp,start=a,end=b),250*60))
-      #       }else{
-      #           tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
-      #         }
-      #     if(b!=last(index(ExG$orig.disp))){
-      #       tmp=rbind(tmp,
-      #       downsample(window(ExG$orig.disp,start=b,end=last(index(ExG$orig.disp))),250*60*10))
-      #       }
-      # }
-      ExG$resol=c(r1,r2)
-      ExG$disp=tmp
-  }
-    }else{
-      Sys.sleep(5)
-       ExG$newfile=F
-     }
-})
-}
-
-if(shiny_running()){
-observeEvent({c(input$disp_chan,
-                input$disp_event,
-                input$disp_ssa)},
-  {
-  # Select Channels to display - mutually exclusive for Source and Channel
+  ## Select Channels to display - mutually exclusive for Source and Channel
   if(!is.null(input$disp_chan)){
     ## Check for mutually exclusive groups - not working
     if(!all(paste0("Filtered",input$disp_chan) %in% colnames(ExG$orig.chan))|
        !all(colnames(ExG$orig.chan) %in% paste0("Filtered",input$disp_chan))){newdata=T}else{newdata=F}
   }else{
-    if(!is.null(colnames(ExG$orig.chan))){newdata=T}else{newdata=F}
+    if(!is.null(colnames(ExG$orig.chan))){newdata=T}else{newdata=F}#####??? WHAT???
   }
 
   #if anything is not displayed already
+  print("NEWDATA")
   if(newdata){
+    redat=T
     tmp=xts(rep(NA,length(index(ExG$freq))),index(ExG$freq))
     colnames(tmp)="Empty"
     if(!is.null(input$disp_chan)){
       for(i in 1:length(input$disp_chan)){
-          tmp=merge(tmp,ExG$freq[,paste0("Filtered",input$disp_chan[i])])
+        tmp=merge(tmp,ExG$freq[,paste0("Filtered",input$disp_chan[i])])
       }
-    ExG$orig.chan=tmp[,colSums(is.na(tmp))<1000]
+      ExG$orig.chan=tmp[,colSums(is.na(tmp))<1000] ### CHEESY -> NOT COLSUMS?? -> BUG?
     }else{
-    ExG$orig.chan=tmp
+      ExG$orig.chan=tmp
     }
     # ExG$colors=c("#ffffe5","#f7fcb9","#d9f0a3","#addd8e","#78c679","#41ab5d","#238443","#005a32")[
     #   colnames(ExG$freq) %in% sort(paste0("Filtered",input$disp_chan))
     # ]
   }
+  print("NEWCLUSTER")
   newclust=(!all(input$disp_ssa %in% colnames(ExG$orig.ssa)))|
     (!all(colnames(ExG$orig.ssa) %in% input$disp_ssa))
-  if(newdata|newclust){
+  if(redat|newclust){
+    redat=T
     tmp=ExG$orig.chan
     # if(input$clust_disp){
       # ExG$rssa<-recons(ExG$ssa,ExG$gssa,stacked = F)
@@ -609,56 +690,93 @@ observeEvent({c(input$disp_chan,
   }
 
   ## Check if alpha band is already displayed, not clean
-  test_q1=(!any(grepl("BP",colnames(ExG$orig.disp))) & "Bandpower" %in% input[["disp_event"]])|
-      (any(grepl("BP",colnames(ExG$orig.disp))) & !("Bandpower" %in% input[["disp_event"]]))
+  test_q1=(!any(grepl("Alp",colnames(ExG$orig.disp))) & "Bandpower" %in% input[["disp_event"]])|
+      (any(grepl("Alp",colnames(ExG$orig.disp))) & !("Bandpower" %in% input[["disp_event"]]))
 
   # Check not implemented
   # test_q2=(all(graph_data$EEG %in% colnames(ExG$orig.disp)) & !("Raw Signal" %in% input$disp_event))|
   #               (!all(graph_data$EEG %in% colnames(ExG$orig.disp)) & ( "Raw Signal" %in% input$disp_event))
 
-  if(test_q1|newdata|newclust){
+  if(test_q1|redat){
     # if(input$clust_disp){}
+    redat=T
     tmp=ExG$orig.ssa
     # if("Raw Signal" %in% input$disp_event){
     #   tmp=merge(tmp,ExG$ts[,unlist(lapply(strsplit(colnames(ExG$orig.chan),"Filtered"),function(x)x[[2]]))])   }
   if("Bandpower" %in% input$disp_event){tmp=merge(tmp,ExG$bandpower)}
-    ##Downsample already
-    ExG$orig.disp=list("bird"=downsample(tmp,250*5),"minute"=downsample(tmp,250),"detail"=tmp)
+    ExG$orig.disp=tmp
+    print(head(ExG$orig.disp))
   }
-  # switch for resolution
-  # if(ExG$redat==F){ExG$redat=T}else{ExG$redat=F}
-  
-  
-  r1=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[1]]),collapse = " "))+60*60
-  r2=as.POSIXct(paste(as.character(strsplit(input[["dygraph_date_window"]],"T")[[2]]),collapse = " "))+60*60
-  range=c(r1,r2)
-  d_range=difftime(range[2],range[1],units="secs")
-  # if(ExG$sight=="detail"){
-  #     if(r1!=first(index(ExG$orig.disp))){
-  #       ## downsample out of scope to minutes, rest complete
-  #         tmp=rbind(
-  #           downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*ExG$srate*5),
-  #           window(ExG$orig.disp,start=r1,end=r2))
-  #     }else tmp=window(ExG$orig.disp,start=r1,end=r2)
-  #     if(r2!=last(index(ExG$orig.disp))){
-  #         tmp=rbind(tmp,
-  #         downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate*60*5))}
-  #     }
-  #       # Minutes , down to seconds
-  #   if(ExG$sight=="time"){
-  #       if(r1!=first(index(ExG$orig.disp))){
-  #         ## downsample out of scope to minutes, rest to seconds
-  #         tmp=rbind(
-  #             downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),ExG$srate),
-  #             downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate))
-  #         }else tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)
-  #         if(r2!=last(index(ExG$orig.disp))){
-  #           tmp=rbind(tmp,
-  #           downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate))}
-  #   }
-    ExG$resol=c(r1,r2)
-    ExG$disp=tmp
 
-    })
+  # Update Resolution of data
+  if(range[2]>min(last(index(ExG$orig.disp)),ExG$resol[2])||
+     range[1]<max(first(index(ExG$orig.disp)),ExG$resol[1])||
+     resize||redat){
+    ## if new data selection, dont change resolution borders
+    if(!redat){
+      r1=max(first(index(ExG$orig.disp)),range[1]-10*d_range)
+      r2=min(last(index(ExG$orig.disp)),range[2]+10*d_range)
+    }else{
+      print(range[1])
+      r1=range[1]
+      r2=range[2]
+    }
+    redat=F
+      #Seconds down to full
+    if(ExG$sight=="detail"){
+      if(r1!=first(index(ExG$orig.disp))){
+        ## downsample out of scope to minutes, rest complete
+        print(ExG$posix)
+          print(first(index(ExG$orig.disp)))
+          print(r1)
+                    print(length(ExG$ts))
+          print(length(ExG$disp))
+          tmp=rbind(
+            downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),60*ExG$srate*5),
+            window(ExG$orig.disp,start=r1,end=r2))
+      }else tmp=window(ExG$orig.disp,start=r1,end=r2)
+      if(r2!=last(index(ExG$orig.disp))){
+          tmp=rbind(tmp,
+          downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate*60*5))}
+      }
+        # Minutes , down to seconds
+    if(ExG$sight=="time"){
+        if(r1!=first(index(ExG$orig.disp))){
+          ## downsample out of scope to minutes, rest to seconds
+          print(ExG$posix)
+          print(first(index(ExG$orig.disp)))
+          print(r1)
+          print(length(ExG$ts))
+          print(length(ExG$disp))
+          tmp=rbind(
+              downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=r1),ExG$srate),
+              downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate))
+          }else{ tmp=downsample(window(ExG$orig.disp,start=r1,end=r2),ExG$srate)}
+          if(r2!=last(index(ExG$orig.disp))){
+            tmp=rbind(tmp,
+            downsample(window(ExG$orig.disp,start=r2,end=last(index(ExG$orig.disp))),ExG$srate))}
+    }
+  #hours down to minutes
+  # if(ExG$sight=="bird"){
+  #   if(a!=first(index(ExG$orig.disp))){
+  #       tmp=rbind(
+  #         downsample(window(ExG$orig.disp,start=first(index(ExG$orig.disp)),end=a),250*60*10),
+  #         downsample(window(ExG$orig.disp,start=a,end=b),250*60))
+  #       }else{
+  #           tmp=downsample(window(ExG$orig.disp,start=a,end=b),250*60)
+  #         }
+  #     if(b!=last(index(ExG$orig.disp))){
+  #       tmp=rbind(tmp,
+  #       downsample(window(ExG$orig.disp,start=b,end=last(index(ExG$orig.disp))),250*60*10))
+  #       }
+  # }
+      ExG$resol=c(r1,r2)
+      ExG$disp=tmp
+  }
+    }else{
+      Sys.sleep(5)
+       ExG$newfile=F
+     }
+})
 }
 ```
