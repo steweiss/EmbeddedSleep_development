@@ -1,4 +1,50 @@
 
+```{r, staging table and SSA plot}
+if(shiny_running()){
+  output$stages<-renderDT({
+    DT::datatable(
+      data.frame(
+        cbind(
+          ExG$stages[,1],
+          strftime(ExG$stages[,2],format="%H:%M:%S")),
+        stringsAsFactors = F),
+      editable=F,options = list(dom = 't'),
+      colnames = c("Stage","Time"))
+    })
+}
+```
+
+
+```{r}
+### OBSERVER FOR EDITING
+if(shiny_running()){
+  #Editable stages
+  observeEvent(input[["stages_cell_edit"]],{
+    tmp=input[["stages_cell_edit"]]
+    if(tmp$col==2){
+      if(length(strsplit(tmp$value,":")[[1]])>=2){
+        if(!to_day(ExG$posix,tmp$value)){
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,tmp$value))
+        }else{
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),tmp$value))
+        }
+      }
+      if(length(strsplit(tmp$value,":")[[1]])==2){
+        if(!to_day(ExG$posix,tmp$value)){
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,paste0(tmp$value,":00")))
+        }else{
+          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),paste0(tmp$value,":00")))
+        }
+      }
+    }
+    else{
+    ExG$stages[tmp$row,tmp$col]<-tmp$value
+    }
+    ExG$stages=ExG$stages[!(ExG$stages[,1] %in% c("")),]
+  })
+}
+```
+
 ```{r}
 
 if(shiny_running()){

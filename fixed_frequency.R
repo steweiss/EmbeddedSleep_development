@@ -18,6 +18,130 @@ butterworth_filter<-
     return(py$ECG_Filter(a,b,ts))
   }
 
+ssa.svd<-function(df,L,chans,eigs){
+  ## chose based on stationarity - e.g. nutrlan or not not - eigen, additionally töplitz only for stationary
+  if(ncol(df)>1){
+    df.ssa<-ssa(df[,chans],L=L,neig=eigs,kind="mssa",svd.method="propack")
+    }else{
+    df.ssa<-ssa(df[,chans],L=L,neig=eigs,kind="1d-ssa",svd.method="propack")
+  }
+  return(df.ssa)
+}
+
+rsvd<-function(df,L,chans,eigs){
+  H = matrix(nrow=(length(df)+L), ncol=L)
+  for(k in seq(1:L)){
+    H[-k, k] = df
+  }
+#   H = H((L):end,:);
+#   H=transpose(H);
+# ny = size(X,2)
+# P = randn(ny,r+p)
+# Z = df*P
+#   for k=1:q
+#   Z = X*(X'*Z);
+#     end
+#     % Gram-Schmidt or QR-Algorithm
+# %     for j=1:n 
+# %         v=A(:,j); % restricted to rows I v=A(I,j);
+# %         for i=1:j-1
+# %             R(i,j)=Q(:,i); % Q unitary at start -
+# %             v=v-R(i,j)*Q(:,i);
+# %         end
+# %         R(j,j)=norm(v); % extension formulae v|I = sqrt(v*v)
+# %         Q(:,j)=v/R(j,j);
+# %     end
+#     [Q,R] = qr(Z,0);
+#     % Step 2: Compute SVD on projected Y=Qâ€™*X;
+#      Y = Q'*X;
+#          %     eig(Y*Y');
+# %     UY=real(Y);
+# %     eig(Y'*Y);
+#          %     V=real(Y);
+#          %     S=Y*UY/V;
+#          tic;
+#          [UY,S,V] = svd(Y,'econ');
+#          U = Q*UY; 
+  
+}
+
+
+grouping.ssa<-function(df,g,nc){
+  sig.comps  <- grouping.auto.wcor(df,nclust=nc,groups=g,method="complete")
+  return(sig.comps)
+  ## Reconstructin by Components,
+  ## e.g. seasonality, sine-cosine frequency components (use period) and noise (by correlation matrix)
+  #residuals(eeg_klt_re)
+  # klt_dat<-x
+  # for(i in 1:as.numeric(input$klt_clust)){
+  #   klt_dat<-cbind(klt_dat,as.numeric(eeg_klt_re[[as.character(i)]]))
+  #   colnames(klt_dat)[i+1]<-paste("PC-Signal",i)
+  # }
+  # klt_dat<-cbind(klt_dat,"PC-uncovered"=as.numeric(residuals(eeg_klt_re)))
+  # klt_dat<-as.ts(klt_dat,frequency=200)
+  # klt_dat[,-1][,1:(ncol(klt_dat)-(2+input$final_component))]
+}
+
+recons<-function(issa,gclust,stacked=F){
+  if(!is.list(gclust)){
+    print("Clusters must be list")
+    return(issa)
+  }
+  # residuals first
+  tmp=residuals(issa)
+  colnames(tmp)[1]<-"Unexplained"
+  ## test for full recons
+  ## remember sum eigenvalues
+  gcls=c()
+  eig_rank=c()
+  for (i in gclust) {
+    gcls=c(gcls,i)
+    # print(i)
+    eig_rank=c(eig_rank,sum(issa$sigma[i]))
+    
+  }
+  
+  if(!all(1:max(gcls) %in% gcls)){
+    sings=(1:max(gcls))[!(1:max(gcls) %in% gcls)]
+    clustsigs=list()
+    for(i in 1:length(gclust)){
+      clustsigs[[i]]=gclust[[i]]}
+    singsigs=as.list(sings)
+    clustsigs=append(clustsigs,singsigs)
+    sig.split <- reconstruct(issa,clustsigs,drop.attributes=F)
+  }else{
+    sig.split <- reconstruct(issa,gclust,drop.attributes=F)
+  }
+  
+  # if incomplete clustering, reconstruct so
+  # if(){
+  # sig.split <- reconstruct(df,g,drop.attributes=T)
+  # }else{
+  #
+  # }
+  
+  ## add signals according to eigvalues and return as cumsum timeseries
+  if(stacked){
+    ##wrong!
+    for(i in 1:length(gclust)){
+      # tmp2=tmp[,i]
+      # for(j in 1:i){
+      tmp2<- reconstruct(issa,list(unlist(gclust[1:i])),drop.attributes=F)$F1
+      # tmp2=tmp2+sig.split[[order(eig_rank,decreasing=T)[j]]]
+      # }
+      colnames(tmp2)<-paste0("Clust",i)
+      tmp=merge(tmp,tmp2)
+    }
+  }else{
+    for(i in 1:length(sig.split)){
+      tmp2=sig.split[[order(eig_rank,decreasing=T)[i]]]
+      colnames(tmp2)<-paste0("Clust",order(eig_rank,decreasing=T)[i])
+      tmp=merge(tmp,tmp2)
+    }
+  }
+  return(tmp)
+  
+}
 
 # mean_centre<-function(df,L=30*250){
 #   mean_df=downsample(df,30*250)
@@ -60,137 +184,37 @@ butterworth_filter<-
 #   }
 # }
 
-ssa.svd<-function(df,L,chans,eigs){
-  ## chose based on stationarity - e.g. nutrlan or not not - eigen, additionally töplitz only for stationary
-  if(ncol(df)>1){
-    df.ssa<-ssa(df[,chans],L=L,neig=eigs,kind="mssa",svd.method="propack")
-  }else{
-    df.ssa<-ssa(df[,chans],L=L,neig=eigs,kind="1d-ssa",svd.method="propack")
-    
-  }
-  return(df.ssa)
-}
 
-grouping.ssa<-function(df,g,nc){
-  sig.comps  <- grouping.auto.wcor(df,nclust=nc,groups=g,method="complete")
-  return(sig.comps)
-  ## Reconstructin by Components,
-  ## e.g. seasonality, sine-cosine frequency components (use period) and noise (by correlation matrix)
-  #residuals(eeg_klt_re)
-  # klt_dat<-x
-  # for(i in 1:as.numeric(input$klt_clust)){
-  #   klt_dat<-cbind(klt_dat,as.numeric(eeg_klt_re[[as.character(i)]]))
-  #   colnames(klt_dat)[i+1]<-paste("PC-Signal",i)
-  # }
-  # klt_dat<-cbind(klt_dat,"PC-uncovered"=as.numeric(residuals(eeg_klt_re)))
-  # klt_dat<-as.ts(klt_dat,frequency=200)
-  # klt_dat[,-1][,1:(ncol(klt_dat)-(2+input$final_component))]
-}
-
-recons<-function(issa,gclust,stacked=F){
-  if(!is.list(gclust)){
-    print("Clusters must be list")
-    return(issa)
-  }
-  # residuals first
-  tmp=residuals(issa)
-  colnames(tmp)[1]<-"Unexplained"
-  
-  ## test for full recons
-  ## remember sum eigenvalues
-  gcls=c()
-  eig_rank=c()
-  for (i in gclust) {
-    gcls=c(gcls,i)
-    # print(i)
-    eig_rank=c(eig_rank,sum(issa$sigma[i]))
-    
-  }
-  
-  if(!all(1:max(gcls) %in% gcls)){
-    sings=(1:max(gcls))[!(1:max(gcls) %in% gcls)]
-    clustsigs=list()
-    for(i in 1:length(gclust)){
-      clustsigs[[i]]=gclust[[i]]
-    }
-    singsigs=as.list(sings)
-    clustsigs=append(clustsigs,singsigs)
-    sig.split <- reconstruct(issa,clustsigs,drop.attributes=F)
-    
-  }else{
-    
-    sig.split <- reconstruct(issa,gclust,drop.attributes=F)
-    
-  }
-  
-  # if incomplete clustering, reconstruct so
-  # if(){
-  # sig.split <- reconstruct(df,g,drop.attributes=T)
-  # }else{
-  #
-  # }
-  
-  
-  ## add signals according to eigvalues and return as cumsum timeseries
-  if(stacked){
-    ##wrong!
-    for(i in 1:length(gclust)){
-      # tmp2=tmp[,i]
-      
-      # for(j in 1:i){
-        tmp2<- reconstruct(issa,list(unlist(gclust[1:i])),drop.attributes=F)$F1
-        # tmp2=tmp2+sig.split[[order(eig_rank,decreasing=T)[j]]]
-      # }
-      colnames(tmp2)<-paste0("Clust",i)
-      tmp=merge(tmp,tmp2)
-    }
-  }else{
-    for(i in 1:length(sig.split)){
-      tmp2=sig.split[[order(eig_rank,decreasing=T)[i]]]
-
-      colnames(tmp2)<-paste0("Clust",order(eig_rank,decreasing=T)[i])
-      tmp=merge(tmp,tmp2)
-    }
-    
-  }
-  
-  
-  return(tmp)
-  
-}
-
-
-
-kalman_filter<-function(df,autoarma=T){
-  if(autoarma){
-    buildFun <- function(x) {
-      res<-auto.arima(df,allowdrift = F)
-      ar_sum<-sum(grepl("ar",names(res$coef)))
-      ma_sum<-sum(grepl("ma",names(res$coef)))
-      if(ar_sum+ma_sum!=length(res$coef))print("ERROR!!!")
-      m <- dlmModARMA(ar=res$coef[1:ar_sum], ma=res$coef[(1+ar_sum):(length(res$coef))])
-      return(m)
-    }
-  }else{
-    buildFun <- function(x,p,q) {
-      res<-arima(df,order=c(p,0,q))
-      ar_sum<-sum(grepl("ar",names(res$coef)))
-      ma_sum<-sum(grepl("ma",names(res$coef)))
-      if(ar_sum+ma_sum!=length(res$coef))print("ERROR!!!")
-      m <- dlmModARMA(ar=res$coef[1:ar_sum], ma=res$coef[(1+ar_sum):(length(res$coef))])
-      return(m)
-    }
-  }
-  fit <- dlmMLE(df,parm = rep(0,8), build = buildFun)
-  
-  dlmExG <- buildFun(fit$par)
-  
-  filt_dat<-dlmFilter(df, dlmExG)
-  
-  # p_dat<-dlmSmooth(filt_dat)
-  
-  return(fil_dat$s[-1])
-}
+# kalman_filter<-function(df,autoarma=T){
+#   if(autoarma){
+#     buildFun <- function(x) {
+#       res<-auto.arima(df,allowdrift = F)
+#       ar_sum<-sum(grepl("ar",names(res$coef)))
+#       ma_sum<-sum(grepl("ma",names(res$coef)))
+#       if(ar_sum+ma_sum!=length(res$coef))print("ERROR!!!")
+#       m <- dlmModARMA(ar=res$coef[1:ar_sum], ma=res$coef[(1+ar_sum):(length(res$coef))])
+#       return(m)
+#     }
+#   }else{
+#     buildFun <- function(x,p,q) {
+#       res<-arima(df,order=c(p,0,q))
+#       ar_sum<-sum(grepl("ar",names(res$coef)))
+#       ma_sum<-sum(grepl("ma",names(res$coef)))
+#       if(ar_sum+ma_sum!=length(res$coef))print("ERROR!!!")
+#       m <- dlmModARMA(ar=res$coef[1:ar_sum], ma=res$coef[(1+ar_sum):(length(res$coef))])
+#       return(m)
+#     }
+#   }
+#   fit <- dlmMLE(df,parm = rep(0,8), build = buildFun)
+#   
+#   dlmExG <- buildFun(fit$par)
+#   
+#   filt_dat<-dlmFilter(df, dlmExG)
+#   
+#   # p_dat<-dlmSmooth(filt_dat)
+#   
+#   return(fil_dat$s[-1])
+# }
 
 rel_bp<-function(df){
   res_df<-as.data.frame.matrix(matrix(0L,nrow=floor(length(df)/(30*250)),ncol=6))
@@ -210,8 +234,6 @@ rel_bp<-function(df){
   }
   return(res_df)
 }
-
-
 
 hrv_analysis<-function(rr,srate,mainDir){
   #create correct data frame and turn on text info mode
@@ -247,8 +269,6 @@ hrv_analysis<-function(rr,srate,mainDir){
   
   return(list(hrv_df.freq,hrv_df.time,hrv_df.nonlin))
 }
-
-
 
 ecg_refs<-function(controls,cases){
   source("C:/Users/Stefan/Nextcloud/Arbeit/MentaLab/Publikation/05_Statistical Analysis/Code/for repo/eXg_filter.R")
@@ -301,8 +321,6 @@ ecg_refs<-function(controls,cases){
     # output[cases[i]] <- renderPlot({
     ggplot(data=rr_df[[i]],aes(y=x,x=y))+geom_point()+xlab("RR Distance in seconds")+ ylab("")+ggtitle(cases[i])
     # })
-    
-    
   }
   
   for(j in 1:length(cases)){
@@ -340,7 +358,6 @@ ecg_refs<-function(controls,cases){
     # output[cases[i]] <- renderPlot({
     ggplot(data=rr_df[[i]],aes(y=x,x=y))+geom_point()+xlab("RR Distance in seconds")+ ylab("")+ggtitle(cases[j])
     # })
-    
     
   }
   return(rr_df)

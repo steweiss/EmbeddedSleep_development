@@ -1,55 +1,11 @@
 
-```{r, staging table and SSA plot}
-if(shiny_running()){
-  output$stages<-renderDT({
-    DT::datatable(
-      data.frame(
-        cbind(
-          ExG$stages[,1],
-          strftime(ExG$stages[,2],format="%H:%M:%S")),
-        stringsAsFactors = F),
-      editable=F,options = list(dom = 't'),
-      colnames = c("Stage","Time"))
-    })
-}
-```
-
-```{r}
-### OBSERVER FOR EDITING
-if(shiny_running()){
-  #Editable stages
-  observeEvent(input[["stages_cell_edit"]],{
-    tmp=input[["stages_cell_edit"]]
-    if(tmp$col==2){
-      if(length(strsplit(tmp$value,":")[[1]])>=2){
-        if(!to_day(ExG$posix,tmp$value)){
-          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,tmp$value))
-        }else{
-          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),tmp$value))
-        }
-      }
-      if(length(strsplit(tmp$value,":")[[1]])==2){
-        if(!to_day(ExG$posix,tmp$value)){
-          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix)+1,paste0(tmp$value,":00")))
-        }else{
-          ExG$stages[tmp$row,tmp$col]=as.POSIXct(paste(as.Date(ExG$posix),paste0(tmp$value,":00")))
-        }
-      }
-    }
-    else{
-    ExG$stages[tmp$row,tmp$col]<-tmp$value
-    }
-    ExG$stages=ExG$stages[!(ExG$stages[,1] %in% c("")),]
-  })
-}
-```
-
-
 ```{r}
 if(shiny_running()){
-output$telco<-renderPlot({
-if(!is.null(input$ssa_channel) & ExG$hold==0){
-  ###################GRAPHIC FOR ONE STAGE WITH ALL COMPONENTS
+  output$telco<-renderPlot({
+    ####################### ExG$hold=1 if calculation still running
+    if(!is.null(input$ssa_channel) & ExG$hold==0){
+
+###################GRAPHIC FOR ONE STAGE WITH ALL COMPONENTS
 #   if(length(input$stages_rows_selected)!=1){
 #     if(input$time_real==F){
 #   p= ggplot()+geom_line(data=ExG$df_res,aes(x=ind,y=Value))+
@@ -67,7 +23,7 @@ if(!is.null(input$ssa_channel) & ExG$hold==0){
 # }else{
 #####################GRAPHIC FOR MANY STAGE FOR EACH CLUSTER
 
-  if(input$time_real==F){
+if(input$time_real==F){
  # p=ggplot()+geom_line(
  #        data=ExG$df_res[ExG$df_res$Column==input$stages_rows_selected,],
  #        aes(x=ind,y=Value,group=Comp,color=Comp))+
@@ -77,28 +33,30 @@ if(!is.null(input$ssa_channel) & ExG$hold==0){
  #            ymin = -Inf,ymax = Inf)+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
  #      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
 
- p=ggplot()+geom_line(
+p=ggplot()+
+  geom_line(
         data=ExG$df_res,
         aes(x=ind,y=Value,group=Comp,color=Comp))+
         theme_classic()+facet_wrap(c( vars(Comp),vars(Row)))+
-   geom_rect(data = ExG$df_res[ExG$df_res$Comp %in% ExG$pan[2],],
-                          fill = NA, colour = "red", xmin = -Inf,xmax = Inf,
-            ymin = -Inf,ymax = Inf)+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+  geom_rect(data = ExG$df_res[ExG$df_res$Comp %in% ExG$pan[2],],
+            fill = NA, colour = "red", xmin = -Inf,xmax = Inf,ymin = -Inf,ymax = Inf)+
+  theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
       scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
-
     }else{
  # p=ggplot()+geom_line(
  #        data=ExG$df_res2[ExG$df_res2$Column==input$stages_rows_selected,],
  #        aes(x=ind,y=Value,group=Real,color=Real))+
  #        theme_classic()+facet_wrap(c(vars(Real),vars(Row)))+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
  #      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
- p=ggplot()+geom_line(
+ p=ggplot()+
+   geom_line(
         data=ExG$df_res2,
         aes(x=ind,y=Value,group=Real,color=Real))+
-        theme_classic()+facet_wrap(c(vars(Real),vars(Row)))+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+        theme_classic()+facet_wrap(c(vars(Real),vars(Row)))+
+   theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
       scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
 
-    }
+  }
     p
 # }
 }
@@ -113,65 +71,76 @@ if(!is.null(input$ssa_channel) & ExG$hold==0){
       scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
 }
 
+```
+
+```{r Dynamic_display}
+
 if(shiny_running()){
-    fillRow(
-    #################STAGING TABLE FOR SELECTION
+  fillRow(
     fillCol(
       renderUI({
-        ssas=graph_data$EEG
+        ssa_choices=graph_data$EEG
         pickerInput(
           inputId = "ssa_channel",
-          choices =ssas,
+          choices =ssa_choices,
           options = list(title = "Channels",`actions-box` = TRUE,size = 10),
           multiple = T
         )
       }),
-      # DTOutput("stages"),flex=c(1,5)),
+
+# DTOutput("stages"),flex=c(1,5)),
     # fillCol(
        switchInput(inputId = "time_real", label = "timed Realization", value=F),
       # renderUI({
       # if(!is.null(input$stages_rows_selected)){
       # if(input$stages_rows_selected==1){
       # ############################### UI ELEMENTS FOR SSA TO EACH STAGE OR
-      knobInput(
-        inputId = "neigs",
-        label = "Number of Components",
-        value = 20,
-        max = 50,
-        min=2,
-        displayPrevious = TRUE,
-        lineCap = "round",
-        fgColor = "#428BCA",
-        inputColor = "#428BCA",
-        immediate=F
-      ),
-      #     }else{
-      #
-      # }
-      # }
-      # }),
-      knobInput(
-        inputId = "nclust",
-        label = "Number of Clusters",
-        value = 3,
-        max = 20,
-        min=1,
-        displayPrevious = TRUE,
-        lineCap = "round",
-        fgColor = "#428BCA",
-        inputColor = "#428BCA",
-        immediate=F
-      )
-
-      ,flex=c(1,1,3,3)),
+knobInput(
+    inputId = "neigs",
+    label = "Number of Components",
+    value = 20,
+    max = 50,
+    min=2,
+    displayPrevious = TRUE,
+    lineCap = "round",
+    fgColor = "#428BCA",
+    inputColor = "#428BCA",
+    immediate=F),
+knobInput(
+    inputId = "nclust",
+    label = "Number of Clusters",
+    value = 2,
+    max = 20,
+    min=1,
+    displayPrevious = TRUE,
+    lineCap = "round",
+    fgColor = "#428BCA",
+    inputColor = "#428BCA",
+    immediate=F)
+,flex=c(1,1,3,3)
+),
     ##########################GRAPHIC TO BE RENDERED
-    plotOutput("telco",click = "plot_click"),flex=c(1,8))}
-
+ tabsetPanel(
+    tabPanel("Overall", plotOutput("telco",click = "plot_click")),
+    id="SSA_STAGES"
+  )
+ ,flex=c(1,8))}
 
 ```
 
 
 ```{r, singular spectrum analysis}
+observeEvent(ExG$stages, {
+    insertTab(inputId = "SSA_STAGES",
+      tabPanel(ExG$stages[1,1], "This a dynamically-added tab"),
+      target = as.character(ExG$stages[1,1])
+    )
+  })
+observeEvent(input$remove, {
+  removeTab(inputId = "SSA_STAGES", target = as.character(ExG$stages[1,1]))
+})
+
+
 # observeEvent(input$stages_rows_selected,
 #
 #              )
@@ -222,13 +191,9 @@ observeEvent(c(input$ssa_channel,input$stages_rows_selected,input$neigs),{
       df=df[df$Real %in% paste0("Real",unlist(ExG$gssa[[i]])),]
       df$Real=factor(df$Real,levels = paste0("Real",unlist(ExG$gssa[[i]])))
       df$Row=i
-#      df$Column=input$stages_rows_selected
       df$Column=input$stages_rows_selected
       ExG$df_res2=rbind(ExG$df_res2,df)
     }
-
-
-
   }
   ExG$hold=0
 })
