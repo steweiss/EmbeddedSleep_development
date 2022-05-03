@@ -81,3 +81,41 @@ if(shiny_running()){
 }
 
 ```
+
+
+```{r}
+if(shiny_running()){
+  observeEvent(input$ana_button,{
+  if(!is.null(input$ecg_ana)){
+    res=py$qrs_detect(coredata(ExG$ts)[,input$ecg_ana],ExG$srate)
+    ExG$qrs=data.frame(rep("QRS",length(res)),first(index(ExG$ts))+res)
+    ExG$hrv=hrv_analysis(res,ExG$srate,mainDir)
+  }
+  if(!is.null(input$eeg_ana)){
+    tmp_bp=rel_bp(coredata(ExG$freq)[,paste0("Filtered",input$eeg_ana)])
+    
+    ExG$bandpower=as.xts((tmp_bp[,1:5]/tmp_bp[,6])*100,seq(ExG$posix, by=input$L, length=nrow(tmp_bp)))
+    
+    ExG$spindles=NULL
+    res2=data.frame()
+  
+    for(i in 1:(nrow(ExG$stages)-1)){
+      ## Limit stages
+          if((ExG$stages[i,1]%in% c("S1","S2","S3"))){
+            ## For last entry take time to end, else take time to next stage
+            if(i!=(nrow(ExG$stages)-1)){tmp=window(ExG$freq,start=ExG$stages[i,2],end=ExG$stages[i+1,2])
+            }else{tmp=window(ExG$freq,start=ExG$stages[i,2],end=last(index(ExG$freq)))}
+            ## Collect Sleep Spindles by Yasa
+            res<-data.frame(
+              py$sleep_spindles(tmp[,paste0("Filtered",input$eeg_ana)],ExG$srate),
+              stringsAsFactors = F)[,c("Start","Duration","Oscillations")]
+            res2=rbind(res2,data.frame(Start=ExG$stages[i,2]+res$Start,stringsAsFactors = F))
+          }
+      }
+    ExG$spindles=setNames(
+      data.frame(rep("Spindle",nrow(res2)),res2$Start,stringsAsFactors = F),c("Event","Time"))
+    }
+    })
+  }
+
+```
