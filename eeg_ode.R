@@ -6,10 +6,23 @@ ssa.svd<-function(df,L,chans,eigs){
   if(ncol(df)>1){
     df.ssa<-ssa(df[,chans],L=L,neig=eigs,kind="mssa",svd.method="propack")
   }else{
-    df.ssa<-rssa(df[,chans],L=L,neig=eigs,kind="1d-ssa",svd.method="propack")
+    df.ssa<-Rsvdssa::ssa(df[,chans],L=L,neig=eigs,kind="1d-ssa",svd.method="propack")
   }
   
   return(df.ssa)
+}
+
+detach_package <- function(pkg, character.only = FALSE)
+{
+  if(!character.only)
+  {
+    pkg <- deparse(substitute(pkg))
+  }
+  search_item <- paste("package", pkg, sep = ":")
+  while(search_item %in% search())
+  {
+    detach(search_item, unload = TRUE, character.only = TRUE)
+  }
 }
 
 rsvd<-function(df,L,chans,eigs){
