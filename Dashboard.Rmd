@@ -11,7 +11,7 @@ output:
     keep_tex: TRUE
     fig_caption: yes        
     number_sections: yes
-            always_allow_html:
+            always_allow_html:yes
 runtime: shiny
 ---
 
