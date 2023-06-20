@@ -1,0 +1,334 @@
+
+
+```{r render_Krawtchouk}
+if(shiny_running()){
+  
+  pow=2
+  load_krawtchouk{
+    krw_fun=data.frame(read.csv(paste0(getwd(),"/data/Krawtchouk/K",pow^2,"D.txt"),header=F))
+    cn=krw_fun[1:(nrow(krw_fun)/5)*5-4,1]
+    krw_fun= data.frame(as.numeric(krw_fun[-(1:(nrow(krw_fun)/5)*5-4),1]))
+    
+    Krawfun<-list()
+    n=0
+    j=1
+    while(j<4){
+      l=1
+      Krawfun[j][[1]]<-list()
+      while(l<10){
+        n=n+1
+        Krawfun[j][[1]][l]<-data.frame(krw_fun[(((n-1)*(pow^2))+1):(n*(pow)^2),1])
+        l=l+1
+        }
+      j=j+1
+      }
+    }
+  
+  
+  
+  output$telco<-renderPlot({
+    ####################### ExG$hold=1 if calculation still running
+    if(ExG$hold2==0){
+for(i in 1:length(ExG$krw_fun)){
+      df=data.frame("ind"=seq(1,length(ExG$ssa$U[,1])))
+      df[,paste0("Comp",ExG$gssa[[i]])]=ExG$ssa$U[,ExG$gssa[[i]]]
+      df=gather(df,key="Comp",value = "Value",-ind)
+      df=df[df$Comp %in% paste0("Comp",unlist(ExG$gssa[[i]])),]
+      df$Comp=factor(df$Comp,levels = paste0("Comp",unlist(ExG$gssa[[i]])))
+      df$Row=i
+      #df$Column=input$stages_rows_selected
+      ExG$df_res=rbind(ExG$df_res,df)
+      ### THIS IS THE DATAFROM FOR THE BIGPLOTS ALSO!
+      df=data.frame("ind"=seq(1,length(ExG$ssa$V[,1])))
+      df[,paste0("Real",ExG$gssa[[i]])]=ExG$ssa$V[,ExG$gssa[[i]]]
+      df=gather(df,key="Real",value = "Value",-ind)
+      df=df[df$Real %in% paste0("Real",unlist(ExG$gssa[[i]])),]
+      df$Real=factor(df$Real,levels = paste0("Real",unlist(ExG$gssa[[i]])))
+      df$Row=i
+      df$Column=input$stages_rows_selected
+      ExG$df_res2=rbind(ExG$df_res2,df)
+    }
+  }
+  ExG$hold=0
+
+
+if(input$time_real==F){
+
+
+p=ggplot()+
+  geom_line(
+        data=ExG$df_res,
+        aes(x=ind,y=Value,group=Comp,color=Comp))+
+        theme_classic()+facet_wrap(c( vars(Comp),vars(Row)))+
+  geom_rect(data = ExG$df_res[ExG$df_res$Comp %in% ExG$pan[2],],
+            fill = NA, colour = "red", xmin = -Inf,xmax = Inf,ymin = -Inf,ymax = Inf)+
+  theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+    }else{
+ # p=ggplot()+geom_line(
+ #        data=ExG$df_res2[ExG$df_res2$Column==input$stages_rows_selected,],
+ #        aes(x=ind,y=Value,group=Real,color=Real))+
+ #        theme_classic()+facet_wrap(c(vars(Real),vars(Row)))+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+ #      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+ p=ggplot()+
+   geom_line(
+        data=ExG$df_res2,
+        aes(x=ind,y=Value,group=Real,color=Real))+
+        theme_classic()+facet_wrap(c(vars(Real),vars(Row)))+
+   theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+
+  }
+  p
+
+}
+})
+
+}else{
+
+  ggplot()+geom_line(
+        data=EXG$df_res,
+        aes(x=ind,y=Value,group=Comp,color=Comp))+
+        theme_classic()+facet_wrap(c( vars(Comp),vars(Row)))+theme(axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),legend.position = "none")+
+      scale_y_continuous(name="",breaks=c(-0.15,0,0.15))+scale_x_continuous("Index")
+}
+
+
+
+```
+
+
+
+---
+title: "Krawtschuk"
+runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(ggplot2)
+library(ggfortify)
+library(Rcpp)
+library(readxl)
+```
+
+## Loading Data
+```{r eruptions, echo=FALSE}
+# yop=fread("C:/Users/sweis/OneDrive/Desktop/rstudio-export/K",2^filebin,"-4D/t6")
+
+# autoplot(ts(yop))
+
+
+ 
+
+
+```
+
+
+### Fourier of the Original signal
+```{r}
+# A1=data.frame('y'=rep(0,length(df)),
+#               'x'=rev(yop))
+# 
+# df2=fft(A1[['V1']]) 
+# 
+# plot(df2)
+# 
+# autoplot(ts(Re(fft(df2,inverse=T))))
+
+```
+
+### Loading of Krawtchouk-Fourier Decomposition
+
+
+```{r}
+##
+
+# cppFunction('
+#     #include <sys/types.h>
+#     
+#     #include <unistd.h>
+#     
+# int readEEG() {
+#   int f4=open("C:/Users/sweis/OneDrive/Desktop/rstudio-export/K64-4D",1);
+#   return f4;
+#   
+# }')
+
+cppFunction('
+#include <Rcpp.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
+    
+NumericVector readEEG(std::string namef1){
+
+  NumericVector yop(1000);
+  const int M=64;
+  union pol{
+    char c[4*M];
+    float p[M];
+       }kr;
+  int mc=64*4;
+  int q1=0;
+  const char *cstr = namef1.c_str();
+  int f1=open(cstr,O_RDONLY|O_BINARY);
+  int q2=lseek(f1,0,SEEK_SET);
+
+  for(int j=0;j<1000;++j){
+    lseek(f1,q1,SEEK_CUR);
+    read(f1,kr.c,mc);
+    j=j+1;
+  }
+  return yop;
+}')
+  
+  
+f1="C:/Users/sweis/OneDrive/Desktop/rstudio-export/K64-4D"
+
+
+cppFunction('
+#include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
+readEEG2(){
+const int M=64;
+  union pol{
+    char c[4*M];
+    float p[M];
+       }kr;
+            int f1=open("C:/Users/sweis/OneDrive/Desktop/rstudio-export/K64-4D",O_RDONLY|O_BINARY);
+            lseek(f1,0,SEEK_SET);
+            read(f1,kr.c,64*4);
+            lseek(f1,1,SEEK_SET);
+            }')
+  
+```
+
+```{r}
+test=data.frame(readxl::read_xls("C:/Users/sweis/Downloads/KR64T4D.xls",col_names=F))
+
+
+Krawfun<-list()
+
+n=1
+j=1
+while(j<4){
+  l=1
+  Krawfun[j][[1]]<-list()
+  while(l<10){
+    n=n+1
+    Krawfun[j][[1]][l]<-data.frame(test[(((n-1)*64)+1):(n*64),4])
+    l=l+1
+  }
+  j=j+1
+  
+}
+
+
+
+A2=matrix(ncol=2,nrow=100)
+t=12000
+M=6
+# while(2^filebin<=1024){
+  f=file(paste0("data/K",2^M,"-4D"),"rb")
+  realimsize=4## whatever distance of real and imaginary on binary file
+  Krawreal=readBin(f, integer(),32,size=4*32)
+  # Krawim=readBin(f, character(),32*4)
+  j=0
+  while(j<t){
+    Krawreal=c(Krawreal,readBin(f, numeric(),32*4))
+    # Krawim=c(Krawim,readBin(f, numeric(),1))
+    j=j+1
+  }
+  plot(Krawreal,type='l')
+  
+```
+
+
+### Marix Multiplication
+
+```{r}
+
+# j=0
+# length(Re(df2))
+A3=data.frame()
+# df
+# i=0
+# sum=rep(0,length(Re(df2)))
+# while(i<10){
+# # sin(seq(from=0,to=2*3.14,by=0.01))
+#   sum=sum+Re(df2)[i]*na.omit(sin(seq(from=0,to=2*3.14*(i+1),by=0.01))[1:length(sin(seq(from=0,to=2*3.14*2,by=0.01)))*i])
+#   i=i+1
+# }
+# while(j+length(df2)>0){
+  # hf=df2[j:length(Krawreal)]
+  # A3['x']=(Re(fft(hf))*Krawreal+
+  #            Im(hf)*Krawim) # multiplication of fourier signal and fourier krawtchouk
+  # A3['y']=(Re(hf)*Krawim[(j*(filebin^2)+1):((j+1)*(filebin^2))]-Krawreal[(j*(filebin^2)+1):((j+1)*(filebin^2))]*Im(hf))
+  # j=j+1
+# }
+
+
+```
+
+
+
+
+
+```{r}
+  g=file(paste0("data/K",2^filebin,"-4D"),"rb")
+  realimsize=4## whatever distance of real and imaginary on binary file
+  Krawdat=readBin(g, character(),32)
+  j=0
+  while(j<t){
+    Krawdat=c(Krawdat,readBin(g, numeric(),32))
+    j=j+1
+  }
+  Krawreal2=Re(fft(Krawdat))
+  Krawim2=Im(fft(Krawdat))
+  plot(Krawreal2)
+  plot(Krawdat,type='l')
+  j=0
+  
+  
+  
+#   while(j<t){
+# }
+#   fft(A3,inverse=T)
+# }
+
+# autoplot(df)
+# 
+# df2=fft(df)
+# 
+# autoplot(df-df3)
+# 
+# df3=ts(Re(fft(fft(df), inverse = TRUE))/length(df))
+
+```
+
+
+```{r}
+
+# read krwatchouk in binary
+
+```
+
+```{r}
+#FFT(A3,W,n,k,-1); /* inverse transformation *//*coefficients of krawtschuk*/
+
+# use them as float
+
+# Find a cycle Form
+
+# Fourier Krawtschuk and the Fourier signal to coefficents, by convolution "theorem"
+
+# and inverse this for coefficents which 
+
+## realize rsvd in this sense
+
+```
+

@@ -6,7 +6,7 @@ ssa.svd<-function(df,L,chans,eigs){
   if(ncol(df)>1){
     df.ssa<-ssa(df[,chans],L=L,neig=eigs,kind="mssa",svd.method="propack")
   }else{
-    df.ssa<-rssa(df[,chans],L=L,neig=eigs,kind="1d-ssa",svd.method="propack")
+    df.ssa<-ssa(df[,chans],L=L,neig=eigs,kind="1d-ssa",svd.method="propack")
   }
   
   return(df.ssa)

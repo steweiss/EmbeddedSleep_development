@@ -52,14 +52,25 @@ runtime: shiny
 loadpackage<-function(x){
   for(i in x){
     if(!(i %in% rownames(installed.packages()))){
-    eval(parse(text=paste0("install.packages(\"",i,"\", repos=\'http://cran.us.r-project.org\')")))
-    eval(parse(text=paste0("library(\"",i,"\")")))}
-    else{eval(parse(text=paste0("library(\"",i,"\")")))}
+      if(i!="eegUtils"){
+        
+    eval(parse(text=paste0("install.packages(\"",i,"\")")))
+    eval(parse(text=paste0("library(\"",i,"\")")))
+
+        }
+    else{
+    eval(parse(text=paste0("remotes::install_github(","\'craddm/eegUtils\'",")")  )  )
+          eval(parse(text=paste0("library(\"",i,"\")")))
+    }
+
+    }else{eval(parse(text=paste0("library(\"",i,"\")")))}
   }
 }
 ################################ POSSIBLE UNNESSECARY PACKAGES / CHECK SORT FOR READABILITY ################################ eegUtils dependency only in Neuroconductor.org
-loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","future","kableExtra","xts",
-              "eegUtils","dlm","forecast","signal","promises",
+
+#kableExtra missing
+loadpackage(c("plyr","dplyr","ggplot2","knitr","broom","ggfortify","future","xts",
+              "eegUtils","forecast","signal","promises",
               "rmarkdown","plotly","visNetwork","Rssa","RHRV","data.table","DT","shinyTime","shinyWidgets","dygraphs","ggplotify","cowplot","tidyr"))
 
 ################################ set default code-chunk parameters
@@ -103,6 +114,7 @@ if(!shiny_running()){
 ####################### Setup Python Environement in Reticulate #######################
 ####################### CURRENTLY NOT MAINTAINED -> USED IS WHAT IS PROVIDED DEFAULT BY RETICULATE ###############
 reticulate::use_python(reticulate::py_config()[[1]],required = T)
+# conda_install("r-reticulate", "scipy")
 library(reticulate)
 #reticulate::repl_python()
 # conda_create("final")
@@ -161,20 +173,29 @@ source(paste0(mainDir,"/constructor.R"))
 ```
 
 
-### Sleep Spindles and QRS Detection
+### Krawtchouk
 
-```{r Events, child = 'Event_detection.Rmd'}
-
-```
-
-### Singular Spectrum Analysis - Manual Clustering: Click on Component (red square) -> Click on Component in New Cluster
-
-```{r Dynamics, child = 'Dynamics.Rmd'}
+```{r Krawtchouk, child = 'Krawtchouk.Rmd'}
 
 ```
 
-### Data Viewer & PDF - data is downsampled based on window range (a) more than 30 minutes (b) between 30 minutes and 20 seconds (c) less than 20 seconds
 
-```{r Report, child = 'Reporting.Rmd'}
 
-```
+
+<!-- ### Sleep Spindles and QRS Detection -->
+
+<!-- ```{r Events, child = 'Event_detection.Rmd'} -->
+
+<!-- ``` -->
+
+<!-- ### Singular Spectrum Analysis - Manual Clustering: Click on Component (red square) -> Click on Component in New Cluster -->
+
+<!-- ```{r Dynamics, child = 'Dynamics.Rmd'} -->
+
+<!-- ``` -->
+
+<!-- ### Data Viewer & PDF - data is downsampled based on window range (a) more than 30 minutes (b) between 30 minutes and 20 seconds (c) less than 20 seconds -->
+
+<!-- ```{r Report, child = 'Reporting.Rmd'} -->
+
+<!-- ``` -->
